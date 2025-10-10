@@ -1,0 +1,244 @@
+---
+title: "Tutorial GO enrichment and GSEA"
+author: "Themis Halka, Rozenn Mintec"
+format: html
+editor: visual
+---
+
+```{r}
+library(airway) #dataset 
+library(tidyverse)
+library(ggplot2)
+
+library(DESeq2) #differential expression
+library(clusterProfiler) #for Go enrichment and GSEA
+library(AnnotationDbi) #will run in the background to retrieve annotations
+library(org.Hs.eg.db) #for GO IDs for humans 
+
+```
+# Tutorial GO enrichment and GSEA 
+
+The purpose of this analysis is to analyse the variation in gene expression between the different conditions/subsets... of our data. Starting with differential expression analysis to test which genes significantly differ between conditions, we will show how to go further and facilitate the interpretation of differential expression analysis using two techniques, GO enrichment analysis (or over-representation analysis) and gene-set enrichment analysis (GSEA). Those techniques, by testing the enrichment of specific "terms" or pathways, connect gene names to interpretable and understandable biological processes, functions... 
+**improve this**
+
+## Loading data 
+
+We use the 'airway' package containing data from https://pmc.ncbi.nlm.nih.gov/articles/PMC4057123/
+
+The dataset is a RNA-seq file that has already been preprocessed and is ready for differential expression analysis. 
+
+It is composed of transcriptomics data from four primary human airway smooth muscle cell lines from patients suffering from lung inflammation. For each cell line, two treatment conditions were analysed: control/untreated, and treated with 1 micromolar dexamethasone for 18 hours. 
+**improve this**
+
+
+```{r}
+data("airway")
+airway
+```
+The dataset used in this tutorial is a RangedSummarizedExperiment file: we will extract the two elements that we need for differential expression analysis and the subsequent GO enrichment and GSEA (which you might need to extract differently if starting from a different data structure):
+- the count matrix containing all gene counts from the different samples: the eight samples in columns, the gene names in rows
+- the metadata for each sample: origin (here which cell line) and condition (here treated or untreated)
+
+This extraction step was inspired from https://github.com/kpatel427/YouTubeTutorials/blob/main/getData.R
+
+```{r}
+#count matrix (countsData)
+countsData <- assay(airway)
+
+#sample information (colData)
+colData <- as.data.frame(colData(airway))
+colData <- sample_info[,c(2,3)] #extracting metadata of interest: cell line and treatment condition
+names(colData) <- c('cellLine', 'dexamethasone') #renaming columns
+colData$dex <- gsub('trt', 'treated', sample_info$dex) #renaming values 
+colData$dex <- gsub('untrt', 'untreated', sample_info$dex) #renaming values 
+
+```
+
+We can now visualise our two inputs and verify that: 
+- the count matrix contains shows gene IDs as rows, sample as columns and contain gene counts for the different samples;
+- the sample information shows each sample as a row and contains information from the cell line and the treatment condition.
+
+```{r}
+head(countsData)
+head(colData)
+```
+
+For the subsequent analysis, we need to make sure that the samples present in our count matrix (i.e. column names) match the samples present in sample information (i.e. row names), and in the same order. 
+
+```{r}
+all(colnames(countsData) %in% rownames(colData))
+all(colnames(countsData) == rownames(colData))
+```
+Our data is now ready to use for differential expression analysis. 
+
+# Differential expression analysis **here**
+
+#### Preparing data for DE analysis
+
+In order to know which genes might be overexpressed or underexpressed, here in our treated sample vs untreated, we want to perform differential expression analysis to significantly assess the difference in expression between our two treatment conditions. 
+
+We use the package 'DESeq2'. First, we need to create the 'DESeqDataSet' object, input for the 'DESeq2()' function. We use the function 'DESeqDataSetFromMatrix', specifying the count matrix and sample information. Additionally, we need to specify which samples we want to compare: here, we might want to compare the gene expression between treatment condition, but we might also be interested in comparing gene expression between the different cell lines present. We will therefore precise in the design parameter that we want to take both into account. 
+
+
+```{r}
+dds <- DESeqDataSetFromMatrix(countData = countsData, #count matrix
+                              colData = colData, #sample information
+                              design = ~ cellLine + dexamethasone) #design: cell line and treatment condition
+dds
+```
+**Optional step**: transcriptomics data can become very large, with tens of thousands of expressed genes. In order to increase computation speed, we might want to filter some very lowly expressed genes in all samples, which might not be insightful for the analysis. 
+
+Here we will remove all genes that are across all samples expressed less than 10 times. 
+
+```{r}
+dds <- dds[rowSums(counts(dds)) >= 10,]
+dds
+```
+From 63677 genes, we filtered the data down to 22369 with this step, i.e. we removed over 40000 genes. This will be helpful to speed up our analysis. 
+
+Differential expression analysis aims to compare different conditions. We usually want to compare one or several conditions to a baseline, which we need to precise. Indeed, the algorithm will by default proceed alphabetically and choose the first condition as baseline (so in our case 'treated', while we want our baseline to be 'untreated'). We therefore use the 'relevel()' function to manually specify the baseline/reference we want to use. 
+
+```{r}
+dds$dexamethasone <- relevel(dds$dexamethasone, ref = "untreated")
+```
+
+**Careful!** If you have any technical replicates in your analysis (not biological replicates like in our case), you will need to collapse them. You can use the 'collapseReplicates()' function (https://rdrr.io/bioc/DESeq2/man/collapseReplicates.html). 
+
+#### Running DE analysis
+
+We now run the analysis on our DESeqDataSet object 'dds' with the function 'DESeq()'. We then extract the results using the 'results()' function. We need to specify: 
+- the significance level at which a gene is considered differentially expressed between conditions, here we use alpha = 0.05. Significance is assessed on the adjusted p-values, which are corrected by default with Benjamaini-Hochberg correction for multiple testing. 
+- the contrasting, i.e. which groups we want to compare in our analysis. Based on what we defined when creating our 'dds' object, DESeq has compared gene expression between different treatment conditions and different cell lines. We can verify the different comparison performed with the 'resultsNames()' function. Here, we are most interested in the difference in gene expression between our two treatment conditions, hence we will contrast, in our dexamethasone (treatment) column, the treated and untreated samples. 
+
+```{r}
+resultsNames(dds) #printing the different comparisons performed by DESeq()
+```
+
+
+```{r}
+dds <- DESeq(dds) #running DE analysis
+res <- results(dds, #extract results
+               alpha = 0.05, #set significance threshold 
+               contrast = c("dexamethasone", "treated", "untreated")) #set contrast
+```
+
+We perform some basic filtering of our data: 
+- we first remove the genes with missing log2 fold change, which can't be analysed in the subsequent GO enrichment and GSEA. However, those genes might show NA because there are solely expressed in one condition, hence we don't want to loose all information about them and might want to include them in our analysis later. We will therefore save them in another object, 'res_NA';
+- we filter out the genes presenting a low average normalised count (baseMean) across all samples. Indeed, lowly expressed genes might bias the subsequent GO enrichment and GSEA, biasing p-value estimation because of small changes that, after normalisation compared to higher-expressed genes, might falsely appear significant. **improve this**
+
+```{r}
+res_NA <- res[is.na(res$log2FoldChange), ] #saving genes with NA log2 fold change
+res <- na.omit(res) #excluding missing values 
+res <- res[res$baseMean > 50,] #filtering lowly expressed genes
+res
+summary(res)
+```
+
+We finally visualise our DE analysis results with a MA plot, where the log2 fold change is plotted against the average normalised count (on a log scale). Genes that are significantly differentially expressed, according to the chosen alpha parameter, are colored in blue. 
+
+```{r}
+plotMA(res)
+```
+
+Now that we have performed our DE analysis, we want to be able to interpret this variation in gene expression. In this tutorial, we will present two techniques to do so: GO enrichment and GSEA, but there are others e.g. pathway enrichment analyis that you can explore here **find a link for that**. 
+
+## GO enrichment 
+
+**explain what GO enrichment is, GO and then over-representation analysis**
+
+#### DEGs identification
+
+GO enrichment takes as an input a list of differentially expressed genes (DEGs), i.e. considered significantly differentially expressed in the DE analysis. We will therefore select the genes which had an adjusted p-value (i.e. corrected for multiple testing) < 0.05. Additionally, we also, for security, want to absolute log2 fold change between our two conditions to be greater than 1. 
+
+```{r}
+degs <- subset(res, padj < 0.05 & abs(log2FoldChange) > 1) #identifying DEGs
+nrow(degs)
+head(degs)
+
+genes <- rownames(degs) #extracting DEG names
+
+```
+
+**... genes** have been identified as DEGs and will be our input for GO enrichment. 
+
+
+#### Running GO enrichment 
+
+We now run GO enrichment with the function enrichGO() from 'clusterProfiler'. It takes as input:
+- the list of DEGs;
+- the Organism Annotation Database (OrgDb), which links gene IDs to annotations from GO. Here, we choose "org.Hs.eg.db" as we work for human data. When working with mouse data, choose "org.Mm.eg.db". If working with other organisms you might have to convert it more manually, you can find more information here **find a nice source**;
+- the background set to which your DEGs will be compared to, here all genes outputted by the DE analysis (significant and non-significant);
+- the type of gene ID we have in our dataset: "ENSEMBL" for ensembl IDs, "SYMBOL" for gene symbol or "ENTREZ" for gene entries;
+- the ontology desired, i.e. one of the three gene ontology categories: Biological Process ("BP"), most frequently used, Molecular Function ("MF") or Cellular Component ("CC"). We will here use "BP". 
+
+```{r}
+GO_res <- enrichGO(gene = genes, #gene list
+                  OrgDb = "org.Hs.eg.db", #organism 
+                  universe = rownames(res),
+                  keyType = "ENSEMBL", #type of gene IDs 
+                  ont = "BP") #ontology of interest
+as.data.frame(GO_res)
+
+```
+
+**explain which column corresponds to what**
+
+#### Visualisation 
+
+**Rozenn your time to shine ;))**
+
+```{r}
+barplot(GO_res,
+        showCategory = 20,
+        title = "Top 20 Enriched GO Biological Processes",
+        font.size = 12)
+```
+
+
+
+## GSEA 
+
+**explain what GSEA is, say that can do it with pathways, GO terms... and here for example we choose GO but provide link for other possibilities**
+
+In contrast to GO enrichment, GSEA takes as input the list of all output genes from the DE analysis, significant or not. Genes are ranked according to the Wald statistic, the log2 fold change in gene expression normalised by its error (and is the statistic the p-value to assess significance is calculated on). We will therefore rank all genes outputted from 'DESeq' and create an input object with the ranked Wald statistic and corresponding gene name. 
+
+
+```{r}
+res_ranked <- res[order(res$stat, decreasing = TRUE),] #ranking data by decreasing Wald statistic
+head(res_ranked)
+```
+
+```{r}
+genes <- res_ranked$stat #Wald statistic (ranked)
+names(genes) <- rownames(res_ranked) #corresponding gene name
+head(genes)
+```
+
+Finally, **je cours chercher eskil pas eu le temps de finir (triste), mais je t'envoie tout au cas ou tu veuilles avancer demain. bisous!**
+
+eps: small positive value added to avoid division-by-zero or instability when computing the enrichment score normalization.
+
+Specifically, it affects the normalization of the enrichment score (ES) when converting it to the normalized enrichment score (NES).
+
+```{r}
+gse <- gseGO(geneList = genes,
+             OrgDb = org.Hs.eg.db,
+             keyType = "ENSEMBL",
+             ont = "BP",
+             eps = 1e-10) #default value of the epsilon
+```
+```{r}
+as.data.frame(gse)
+```
+
+
+
+
+
+
+
+
+
+
+
+
