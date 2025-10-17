@@ -1,0 +1,505 @@
+---
+title: "Tutorial GO enrichment and GSEA"
+author: "Themis Halka, Rozenn Mintec"
+date: "`r Sys.Date()`"
+format:
+  html:
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    number-sections: true 
+    theme: flatly             
+    df-print: paged 
+---
+
+## Installing and loading necessary packages
+
+```{r, message=FALSE}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+#required packages
+cran_pkgs <- c("tidyverse", "ggplot2", "ggupset")
+bioc_pkgs <- c("airway", "DESeq2", "clusterProfiler",
+               "AnnotationDbi", "org.Hs.eg.db", "enrichplot")
+
+#install missing CRAN packages
+missing_cran <- setdiff(cran_pkgs, rownames(installed.packages()))
+if (length(missing_cran)) install.packages(missing_cran)
+
+#install missing Bioconductor packages
+missing_bioc <- setdiff(bioc_pkgs, rownames(installed.packages()))
+if (length(missing_bioc)) BiocManager::install(missing_bioc)
+```
+
+```{r, message=FALSE}
+library(airway) #dataset 
+library(tidyverse)
+library(ggplot2)
+library(DESeq2) #differential expression
+library(clusterProfiler) #GO enrichment and GSEA
+library(AnnotationDbi) #will run in the background to retrieve annotations
+library(org.Hs.eg.db) #for GO IDs for humans 
+library(enrichplot) #package for enrichment results visualization
+library(ggupset) #needed for the uspet plot
+
+```
+
+# Tutorial ORA and GSEA (using GO)
+
+When performing (single-cell) RNA-Seq experiments, the aim is to investigate gene expression in the sample of interest. It can often be of interest to compare gene expression between different samples: different conditions (e.g. times series or treatment) or different cell types, lineages... The purpose of functional enrichment analysis is to explore and compare the variation in gene expression between the samples or conditions studied and relate it to the biological question of interest.
+
+Prior to performing functional enrichment, the data needs to be preprocessed and, if in the case of single-cell RNA-Seq, the different cell types must be identified. Once the data is ready, the first step of the workflow is to perform Differential Expression (DE) analysis to assess, for each gene, how much the expression varies between the two conditions or samples of interest. This analysis will give an output often containing thousands of genes, hence can be difficult to interpret and relate to the biological question. The goal of functional enrichment is to make sense of this output by linking the genes back to processes or pathways they are involved in, location in the cell..., i.e. information that is more intuitive and easily interpretable. Several methods can be used, and we will in this tutorial present and illustrate two complementary approaches:
+
+-   Over-Representation Analysis (ORA)
+
+-   Gene-Set Enrichment Analysis (GSEA)
+
+Both techniques test whether specific biological terms, pathways, or functions are statistically enriched (or over-represented) among the genes showing important variation in expression between the conditions or samples of interest. By connecting gene names to interpretable and understandable biological concepts, these analyses help transform a long list of DE genes into biological insights.
+
+Several gene annotations (pathways, ontologies...) can be used for such purpose. In this tutorial, we will focus on Gene Ontology (GO), a standardized representation that describes gene attributes across all species. It is organized into 3 categories : Biological Process, Molecular Function and Cellular Component. We will here focus on Biological Process, the most common category.
+
+## Loading data
+
+In this tutorial, we use the `airway` package containing RNA-Seq data published by *Himes et al., 2014*.
+
+The dataset has already been preprocessed and normalized, making it ready for differential expression (DE) analysis.
+
+It is composed of transcriptomic profiles from four primary human airway smooth muscle cell lines derived from patients suffering from lung inflammation. For each cell line, two treatment conditions were analysed:
+
+-   Untreated (control)
+
+-   Treated with 1 µM dexamethasone for 18 hours. Dexamethasone is a synthetic glucocorticoid commonly used to suppress inflammation
+
+Our aim will therefore be to investigate which biological processes are affected by the dexamethasone treatment, by comparing the treated samples to the baseline untreated samples.
+
+```{r}
+data("airway")
+airway
+```
+
+The `airway` package provides a `RangedSummarizedExperiment` object. From this object, we will extract the two elements required for differential expression analysis and the subsequent ORA and GSEA (**Note:** if your dataset comes in a different format, you might need to adapt the extraction accordingly):
+
+-   The count matrix containing all gene counts for each sample (each row corresponds to a gene, each column corresponds to a sample)
+
+-   The sample metadata providing contextual information for each sample: its origin (here which cell line) and the condition (here treated or untreated)
+
+This extraction step was inspired from https://github.com/kpatel427/YouTubeTutorials/blob/main/getData.R
+
+```{r}
+#count matrix (countsData)
+countsData <- assay(airway)
+
+#sample information (colData)
+colData <- as.data.frame(colData(airway))
+colData <- colData[,c(2,3)] #extracting metadata of interest: cell line and treatment condition
+colData$dex <- gsub('trt', 'treated', colData$dex) #renaming values 
+colData$dex <- gsub('untrt', 'untreated', colData$dex) #renaming values 
+
+names(colData) <- c('cellLine', 'dexamethasone') #renaming columns
+
+```
+
+We can now visualize our two inputs and ensure that the data has been correctly extracted:
+
+-   The count matrix should display gene IDs as rows and sample as columns, with each entry representing the raw count of reads mapped to a given gene in a given sample
+
+-   The sample metadata should show one row per sample and contain information about its cell line and treatment condition
+
+```{r}
+head(countsData)
+head(colData)
+```
+
+For the subsequent analysis, we need to make sure that the column names present in the count matrix match the row names of the sample metadata, and in the same order.
+
+```{r}
+all(colnames(countsData) %in% rownames(colData))
+all(colnames(countsData) == rownames(colData))
+```
+
+Our data is now ready to be used for differential expression analysis.
+
+## Differential Expression (DE) analysis
+
+#### Preparing data for DE analysis
+
+DE analysis aims to statistically assess differences in gene expression between two samples or conditions, and we will use it to determine which genes might be significantly overexpressed or underexpressed in our two treatment conditions: treated vs untreated.
+
+For this step, we use the `DESeq2` package (*Love et al., 2014*).
+
+First, we need to create the `DESeqDataSet` object, the main input for the `DESeq()` function. We do this using the `DESeqDataSetFromMatrix()` function, where we specify :
+
+-   The count matrix (`countsData`)
+
+-   The sample information (`colData`)
+
+-   The experimental design, which specifies the two samples or conditions we want to compare in the model. Here, we want to compare the gene expression between the two treatment conditions while also accounting for potential variability between the four cell lines.
+
+```{r}
+dds <- DESeqDataSetFromMatrix(countData = countsData, #count matrix
+                              colData = colData, #sample information
+                              design = ~ cellLine + dexamethasone) #design: cell line and treatment condition
+dds
+```
+
+**Optional step: Filtering lowly expressed genes.** Transcriptomics data can be very large, with tens of thousands of expressed genes. In order to increase computation speed and improve robustness, we might want to filter some genes that are very lowly expressed across all samples.
+
+In this tutorial, we will remove genes whose total expression across all samples is less than 10 counts.
+
+```{r}
+dds <- dds[rowSums(counts(dds)) >= 10,] #summing expression across all samples and selecting counts > 10
+dds
+```
+
+From 63677 genes, we filtered the data down to 22369 with this step, i.e. we removed over 40000 genes. This will be helpful to speed up our analysis.
+
+DE analysis aims to compare gene expression between samples or conditions. We usually want to compare one or several conditions to a baseline, which we need to explicitly define. Indeed, the algorithm will by default proceed alphabetically and choose the first condition as baseline (so in our case 'treated', while we want our baseline to be 'untreated').
+
+We therefore use the `relevel()` function to manually specify the baseline/reference we want to use.
+
+```{r}
+dds$dexamethasone <- relevel(dds$dexamethasone, ref = "untreated")
+
+```
+
+**Note:** If you have any technical replicates in your analysis (i.e. multiple sequencing runs), you will need to collapse them before running DE analysis. Technical replicates have to be combined because they do not represent independent biological variation. On the contrary, biological replicates must not be collapsed (like in our case). For this, you can use the `collapseReplicates()` function: you can fin more information here https://rdrr.io/bioc/DESeq2/man/collapseReplicates.html
+
+#### Running DE analysis
+
+We can now run the DE analysis on our `DESeqDataSet` object (`dds`) with the function `DESeq()`. We then extract the results using the `results()` function. For the latter, need to specify two key parameters:
+
+-   The significance level (`alpha`) at which a gene is considered differentially expressed between conditions, here we use alpha = 0.05. By defaults, significance is assessed on the adjusted p-values, corrected for multiple testing with the Benjamini-Hochberg correction
+
+-   The contrast, i.e. which groups we want to compare in our analysis. It determines the direction of the log2 fold changes. Here, we need to choose the comparison we want to analyse. We previously defined our design when creating our `dds` object as `~ cellLine + dexamethasone`. This means that DESeq models both the treatment condition and cell line effect. We can verify the different comparison performed with the `resultsNames()` function. Here, we are most interested in the difference in gene expression between our two treatment conditions, hence we will contrast, in our treatment (dexamethasone) column, the treated and untreated samples.
+
+```{r}
+dds <- DESeq(dds) #running DE analysis
+resultsNames(dds) #printing the different comparisons performed by DESeq()
+
+```
+
+```{r}
+res <- results(dds, #extract results
+               alpha = 0.05, #set significance threshold 
+               contrast = c("dexamethasone", "treated", "untreated")) #set contrast
+res
+summary(res)
+```
+
+The results of the DE analysis show, for each gene:
+
+-   The mean of the normalised count over all samples
+
+-   The Log2 Fold Change, which represents the gene expression in the treated over untreated condition
+
+-   The Standard Error of the Log2 Fold Change, which estimates the uncertainty of the Log2 Fold Change (e.g. which might be high because of few replicates, low gene counts or a high dispersion)
+
+-   The Wald statistic (stat), which compares the Log2 Fold Change to its Standard Error to evaluate whether there is a gene effect or whether it is just noise. A high Wald statistic value indicates that the gene probably has an effect
+
+-   The p-value, which assesses the probability of obtaining this Wald statistic value under the null hypothesis
+
+-   The adjusted p-value, which corrects the p-values for multiple testing using the Benjamini-Hochberg correction by default. This adjusted p-value will be compared to the significance level 'alpha' previously chosen in order to identify significantly Differentially Expressed Genes (DEGs)
+
+Before performing enrichment analysis, we perform some basic filtering of our differential expression results:
+
+1.  We first remove the genes with missing Log2 Fold Change (`NA`), which can't be analysed in the subsequent ORA and GSEA. However, those genes might show `NA` because there are solely expressed in one condition. To avoid loosing all information about these genes, we save them in another object, `res_NA`, in case we want to go back to them later
+2.  We then filter out the genes presenting a low average normalised count (`baseMean`) across all samples. Indeed, lowly expressed genes might bias the subsequent ORA and GSEA, biasing p-value estimation because of small changes that, after normalization compared to higher-expressed genes, might falsely appear significant
+
+```{r}
+res_NA <- res[is.na(res$log2FoldChange), ] #saving genes with NA log2 fold change
+res <- na.omit(res) #excluding missing values 
+res <- res[res$baseMean > 50,] #filtering lowly expressed genes
+```
+
+#### Visualization of DE results
+
+We will visualize the results of the DE analysis using a MA plot. It displays the Log2 Fold Change of each gene between the two conditions studied, against the average normalized count (on a log scale). Genes that are significantly differentially expressed, according to the chosen `alpha` parameter, are colored in blue, making it easy to identify genes with strong expression variation.
+
+```{r}
+plotMA(res)
+```
+
+Now that we have performed our DE analysis, we want to be able to interpret this variation in gene expression and will perform functional enrichment.
+
+## Over-Representation analysis (ORA)
+
+Over-Representation Analysis (ORA) is a functional enrichment analysis which aims to identify biological concepts (ontologies, pathways...) that are enriched (i.e. over-represented) in the gene set of interest. In our case, it will allow us to identify which terms or pathways are significantly altered in our treated samples vs untreated.
+
+To that aim, ORA will investigate the terms, here GO terms, associated to each gene from the gene set of interest and identify GO terms that are significantly enriched as compared to a background gene set using a Hypergeometric test.
+
+#### DEGs identification
+
+ORA takes as an input a list of differentially expressed genes (DEGs), i.e. considered significantly differentially expressed by the previous DE analysis. We will therefore select the genes which had an adjusted p-value (i.e. corrected for multiple testing) \< 0.05. Additionally, we also, for safety, want to make sure that the absolute log2 fold change between our two conditions is greater than 1.
+
+```{r}
+degs <- subset(res, padj < 0.05 & abs(log2FoldChange) > 1) #identifying DEGs
+nrow(degs)
+head(degs)
+
+genes <- rownames(degs) #extracting DEG names
+
+```
+
+After filtering, 676 genes have been identified as DEGs and will serve as our input for ORA.
+
+#### Running ORA
+
+We now run ORA using the `enrichGO()` function from `clusterProfiler` package (*Yu et al., 2012 & 2024; Wu et al., 2021; Xu et al., 2024*). This function requires several inputs:
+
+-   The DEGs list from the previous step
+
+-   The Organism Annotation Database (`OrgDb`), which links gene IDs to annotations from GO. Here, we choose `"org.Hs.eg.db"` as we work for human data. When working with mouse data, choose `"org.Mm.eg.db"`. For other organisms, you might have to convert it more manually (you can find more information here : <https://geneontology.org/docs/download-go-annotations/>)
+
+-   The background set to which your DEGs will be compared to, here all genes outputted by the DE analysis (both significant and non-significant)
+
+-   The type of gene ID we have in our dataset: `"ENSEMBL"` for ensembl IDs, `"SYMBOL"` for gene symbol or `"ENTREZ"` for gene entries
+
+-   The ontology desired, i.e. one of the three GO categories: Biological Process (`"BP"`), most frequently used, Molecular Function (`"MF"`) or Cellular Component (`"CC"`). We will here use `"BP"`.
+
+-   The p-value cutoff used to determine significance. We will use the default 0.05
+
+-   The correction applied for multiple testing. We will use the default Benjamini-Hochberg (BH)
+
+```{r}
+GO_res <- enrichGO(gene = genes, #gene list
+                  OrgDb = "org.Hs.eg.db", #organism 
+                  universe = rownames(res), #background set
+                  keyType = "ENSEMBL", #type of gene IDs 
+                  ont = "BP", #ontology of interest
+                  pvalueCutoff = 0.05, #significance cutoff
+                  pAdjustMethod = "BH" #correction for multiple testing
+                  ) 
+head(as.data.frame(GO_res))
+
+```
+
+After running ORA, we obtain a table that summarizes different characteristics of the enriched GO terms:
+
+-   ID: GO term identifier
+
+-   Description: the description of the GO term (based on the chosen ontology category)
+
+-   Gene ratio: the ratio of DEGs belonging to the GO term vs the total number of DEGs
+
+-   BgRatio: the ratio of all genes belonging to the GO term (in the background set) vs the total number of genes in the background set, which gives an indication of how "rare" the GO term is
+
+-   RichFactor: the magnitude of enrichment calculated as GeneRatio/BgRatio
+
+-   FoldEnrichement: the enrichment fold change
+
+-   zScore: the direction of the enrichement
+
+-   pvalue: the raw p-value for enrichment
+
+-   p.adjust : the ajusted p-value corrected for multiple testing with the chosen correction
+
+-   qvalue : the False Discovery Rate
+
+-   GeneID: the IDs of genes in the DEGs list that map to the GO term
+
+-   Count: the number of DEGs associated with the GO term
+
+#### Visualizations for ORA results
+
+To interpret enrichment results, it is useful to visualize them. For this, the `enrichplot` package provides several visualization methods that can be applied to both ORA and GSEA results (*Yu et al., 2025*)
+
+**The bar plot : an overview of most enriched GO terms**
+
+The most commonly used method for visualization is the bar plot. It gives a quick overview of the most significant enriched terms.
+
+You can customize it to display either p-values, gene counts or gene ratios on the x-axis. The `showCategory` parameter allows you to indicate how many top GO terms (i.e. most enriched) to display in the plot. The bar plot is additionally coloured according to the GO term's adjusted p-value.
+
+```{r, message=FALSE, warning=FALSE}
+barplot(GO_res,
+        showCategory = 20, #number of GO terms to display
+        title = "Barplot representation of the top 20 enriched GO terms (ORA)",
+        font.size = 10,
+        color = "p.adjust" #colour according to p-value
+        ) +
+  xlab("Counts") + 
+  ylab("GO Biological Process Terms") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    axis.title = element_text(size = 12))
+
+```
+
+**The dot plot : a more detailed overview of most enriched GO terms**
+
+Another well-used visualization method is the dot plot. It shows similar information as the bar plot but with an additional characteristic: the count (number of DEGs associated with the GO term) as dot size.
+
+```{r, message=FALSE}
+dotplot(GO_res,
+        showCategory = 20,#number of GO terms to display
+        title = "Dot plot representation of the top 20 enriched GO biological processes (ORA)",
+        font.size = 10) +
+  xlab("Gene ratio") +
+  ylab("GO Biological Process Terms") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    axis.title = element_text(size = 12))
+```
+
+**The upset plot : complex association**
+
+We can visualize complex association between genes and GO terms using the upset plot, which helps to show which genes are shared across multiple GO terms and is particularly useful for large enrichment results.
+
+```{r, warning=FALSE}
+library(ggupset)
+upsetplot(GO_res) + 
+  ggtitle("Upset plot representation of Enriched GO biological processes (ORA)") +
+  xlab("GO Terms combinations") +
+  ylab("Gene count")+
+  theme_minimal()+
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    axis.title = element_text(face = "bold", size = 12),
+    axis.text = element_text(size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Using those visualizations and the table of enriched GO terms, you can them relate them back to your biological question and interpret your results using your knowledge and the literature.
+
+## Gene-Set Enrichment Analysis (GSEA)
+
+Gene Set Enrichment Analysis (GSEA) is another functional enrichment analysis which also aims to identify biological concepts (ontologies or pathways) that are enriched in the gene set of interest. However, GSEA is directional: for each significantly enriched term, it will precise whether the term is up-regulated or down-regulated in our sample of interest. Here, which terms are up-regulated or down-regulated in the treated sample vs untreated sample.
+
+To that aim, GSEA will, for each GO term of interest, calculate an Enrichment Score (ES) which will describe where in the ranked gene set of interest (outputted by the DE analysis) the term is most enriched. This ES will then be compare to the ES distribution obtained from randomly permuting gene labels in order to assess significance. As an output, we will obtain significantly enriched GO term at the top of the gene list (i.e. up-regulated) or at the bottom of the gene list (i.e. down-regulated).
+
+#### Ranked gene list for GSEA
+
+In contrast to ORA, GSEA takes as input the list of all output genes from the DE analysis, significant or not, to detect changes.
+
+Genes are ranked according to the Wald statistic, which represents the log2 fold change in gene expression normalized by its error. This statistic underlies the calculation of the p-value to assess significance. We therefore expect genes that are up-regulated in the treated sample vs untreated to be at the top of the list, and the down-regulated genes at the bottom of that list (there is no notion of significance here).
+
+We will therefore rank all genes outputted from `DESeq` and create an input object with the ranked Wald statistic (`stat`) and corresponding gene name, to serve as an input for GSEA.
+
+```{r}
+res_ranked <- res[order(res$stat, decreasing = TRUE),] #ranking data by decreasing Wald statistic
+head(res_ranked)
+```
+
+```{r}
+genes <- res_ranked$stat #Wald statistic (ranked)
+names(genes) <- rownames(res_ranked) #corresponding gene name
+head(genes)
+```
+
+#### Running GSEA
+
+Once the ranked gene list is prepared, we can perform GSEA using `gseGO()` function from `clusterProfiler`.
+
+The `gseGO()` function computes an enrichment score (ES) which asses where in the ranked gene set the GO term's genes are most concentrated. This ES is then normalized (NES) to account for gene set size. To avoid division-by-zero or instability when computing the enrichment score normalization, a small positive value is added (`eps`). This ensure reproducibility without affecting the biological interpretation.
+
+Once the enrichment score are obtained, significance is assessed by comparing the ES to the enrichment score distribution obtained from randomly permuting gene labels. The significance level is set by the parameter `pvalueCutoff`. Finally, the correction applied for multiple testing can be specified by the parameter `pAdjustMethod`.
+
+The output shows a list of significantly enriched GO terms, either up-regulated (enriched at the top) or down-regulated (enriched at the bottom) in the ranked gene list.
+
+```{r, message=FALSE}
+class(genes)
+gse <- gseGO(geneList = genes, #gene list
+             OrgDb = org.Hs.eg.db,#organism 
+             keyType = "ENSEMBL", #type of gene IDs
+             ont = "BP", #ontology of interest
+             eps = 1e-10, #default value of epsilon
+             pvalueCutoff = 0.05, #significance cutoff
+             pAdjustMethod = "BH" #correction for multiple testing
+             )
+```
+
+```{r}
+head(as.data.frame(gse))
+```
+
+#### Visualizations for GSEA results
+
+**Dot plot : an overview of most enriched GO terms**
+
+In the case of GSEA, the `barplot()` is not intended for GSEA objects. It is more common to visualize the results using `dotplot()` to have a overview of the results. The dotplot will display the most enriched GO terms (whether they are up-regulated or down-regulated) but not display information about the direction of the enrichment.
+
+```{r, message=FALSE}
+dotplot(gse,
+        showCategory = 20,
+        title = "Dot plot representation of the top 20 enriched GO biological processes (GSEA)",
+        font.size = 10) +
+  xlab("Gene ratio") +
+  ylab("GO Biological Process Terms") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    axis.title = element_text(size = 12))
+```
+
+**The** **running enrichment score plot : visualizing enrichment for a selected GO term**
+
+To visualize how genes contribute to the enrichment of one GO term of focus, we can plot the running enrichment score (ES) along the ranked gene list. This plot shows where the genes associated with the selected GO term are located (top or bottom) within the ranked list.
+
+The peak value for the the running curve represents the ES for the selected GO term, i.e. if the peak is near the top of the ranked list, genes contributing to this term are mostly up-regulated, while if the peak is near the bottom of the ranked list, they are mostly down-regulated.
+
+Here, we used the first GO term "cellular response to hormone stimulus" as an example.
+
+```{r}
+term <- gse$Description[1]
+gseaplot2(gse,
+          geneSetID = gse$ID[1],
+          title = paste("Running enrichment score for:", term, "(GSEA)"))
+```
+
+**The ridge plot : enrichment results across multiple GO terms**
+
+The ridge plot is a good way to visualize the distribution of enrichment scores across the top enriched GO terms. It highlights both the direction (up/down regulation) and significance of the enrichment for multiple GO terms.
+
+```{r}
+ridgeplot(gse, showCategory = 20) +
+  ggtitle("Ridge plot representation of the top 20 enriched GO terms (GSEA)") +
+  xlab("Normalized Enrichment Score (NES)") +
+  ylab("GO Biological Process terms") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    axis.title = element_text(size = 12)
+  )
+```
+
+As for ORA, you can use those visualizations and the table of enriched GO terms to relate them back to your biological question and interpret your results using your knowledge and the literature.
+
+If you are interested in more visualization methods, you can find additional information here : <https://yulab-smu.top/biomedical-knowledge-mining-book/enrichplot.html>
+
+## Conclusion
+
+In this tutorial, we presented how to perform functional enrichment analysis on RNA-Seq data using GO terms with two analysis: Over-Representation Analysis and Gene Set Enrichment Analysis. These analysis are often combined as they have subtle differences that make them complementary. While ORA is an intuitive and computationally fast method, GSEA is a harder to implement but more sensitive technique which provides more detailed information. Indeed, it is a directional analysis, i.e. precises whether a term is up-regulated or down-regulated. Moreover, since it inputs all the genes present in the data without defining a cutoff for significantly differentially expressed genes, it can be more sensitive to small changes that might get unnoticed in ORA. It can therefore be useful to combine both analysis and compare the outputs. This tutorial only presents two functional enrichment analysis, using one ontology, and you might want to explore other enrichment methods, e.g. pathway enrichment analysis, or ontologies, e.g. Disease Ontology or Medical Subset Heading, to further target our analysis to your dataset and biological question.
+
+## References Table
+
+1.  Himes, B. E., Jiang, X., Wagner, P., Hu, R., Wang, Q., Klanderman, B., Whitaker, R. M., Duan, Q., Lasky-Su, J., Nikolos, C., Jester, W., Johnson, M., Panettieri, R. A., Tantisira, K. G., Weiss, S. T., & Lu, Q. (2014). RNA-Seq Transcriptome Profiling Identifies CRISPLD2 as a Glucocorticoid Responsive Gene that Modulates Cytokine Function in Airway Smooth Muscle Cells. PLoS ONE, 9(6), e99625.<https://doi.org/10.1371/journal.pone.0099625>
+
+2.  YouTubeTutorials/getData.R at main · kpatel427/YouTubeTutorials. (n.d.). GitHub. Retrieved October 16, 2025, from<https://github.com/kpatel427/YouTubeTutorials/blob/main/getData.R>
+
+3.  Love, M. I., Huber, W., & Anders, S. (2014). Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2. Genome Biology, 15(12), 550.<https://doi.org/10.1186/s13059-014-0550-8>
+
+4.  Love, M. (2017). Airway \[Computer software\]. Bioconductor.<https://doi.org/10.18129/B9.BIOC.AIRWAY>
+
+5.  collapseReplicates: Collapse technical replicates in a RangedSummarizedExperiment... in DESeq2: Differential gene expression analysis based on the negative binomial distribution. (n.d.). Retrieved October 16, 2025, from<https://rdrr.io/bioc/DESeq2/man/collapseReplicates.html>
+
+6.  Download annotations. (2025, October 13). Gene Ontology Resource.<http://geneontology.org/docs/download-go-annotations/>
+
+7.  Yu, G. (2024). Thirteen years of clusterProfiler. The Innovation, 5(6), 100722.<https://doi.org/10.1016/j.xinn.2024.100722>
+
+8.  Xu, S., Hu, E., Cai, Y., Xie, Z., Luo, X., Zhan, L., Tang, W., Wang, Q., Liu, B., Wang, R., Xie, W., Wu, T., Xie, L., & Yu, G. (2024). Using clusterProfiler to characterize multiomics data. Nature Protocols, 19(11), 3292--3320.<https://doi.org/10.1038/s41596-024-01020-z>
+
+9.  Wu, T., Hu, E., Xu, S., Chen, M., Guo, P., Dai, Z., Feng, T., Zhou, L., Tang, W., Zhan, L., Fu, X., Liu, S., Bo, X., & Yu, G. (2021). clusterProfiler 4.0: A universal enrichment tool for interpreting omics data. The Innovation, 2(3), 100141.<https://doi.org/10.1016/j.xinn.2021.100141>
+
+10. Yu, G., Wang, L.-G., Han, Y., & He, Q.-Y. (2012). clusterProfiler: An R Package for Comparing Biological Themes Among Gene Clusters. OMICS: A Journal of Integrative Biology, 16(5), 284--287.<https://doi.org/10.1089/omi.2011.0118>
+
+11. Guangchuang Yu. (2018). Enrichplot \[Computer software\]. Bioconductor.<https://doi.org/10.18129/B9.BIOC.ENRICHPLOT>
+
+12. Yu, G. (n.d.). Chapter 15 Visualization of functional enrichment result \| Biomedical Knowledge Mining using GOSemSim and clusterProfiler. Retrieved October 16, 2025, from <https://yulab-smu.top/biomedical-knowledge-mining-book/enrichplot.html>
+
+We finally save the session information for reproducibility purposes.
+
+```{r}
+sessionInfo()
+```
