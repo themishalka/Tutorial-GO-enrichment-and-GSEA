@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.433">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Themis Halka, Rozenn Mintec">
+<meta name="dcterms.date" content="2025-10-17">
+
+<title>Tutorial GO enrichment and GSEA</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="Tutorial_RNAseqProject_files/libs/clipboard/clipboard.min.js"></script>
+<script src="Tutorial_RNAseqProject_files/libs/quarto-html/quarto.js"></script>
+<script src="Tutorial_RNAseqProject_files/libs/quarto-html/popper.min.js"></script>
+<script src="Tutorial_RNAseqProject_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="Tutorial_RNAseqProject_files/libs/quarto-html/anchor.min.js"></script>
+<link href="Tutorial_RNAseqProject_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="Tutorial_RNAseqProject_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="Tutorial_RNAseqProject_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="Tutorial_RNAseqProject_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="Tutorial_RNAseqProject_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+<link href="Tutorial_RNAseqProject_files/libs/pagedtable-1.1/css/pagedtable.css" rel="stylesheet">
+<script src="Tutorial_RNAseqProject_files/libs/pagedtable-1.1/js/pagedtable.js"></script>
+
+
+</head>
+
+<body>
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article toc-left">
+<div id="quarto-sidebar-toc-left" class="sidebar toc-left">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#installing-and-loading-necessary-packages" id="toc-installing-and-loading-necessary-packages" class="nav-link active" data-scroll-target="#installing-and-loading-necessary-packages"><span class="header-section-number">0.1</span> Installing and loading necessary packages</a></li>
+  <li><a href="#tutorial-ora-and-gsea-using-go" id="toc-tutorial-ora-and-gsea-using-go" class="nav-link" data-scroll-target="#tutorial-ora-and-gsea-using-go"><span class="header-section-number">1</span> Tutorial ORA and GSEA (using GO)</a>
+  <ul class="collapse">
+  <li><a href="#loading-data" id="toc-loading-data" class="nav-link" data-scroll-target="#loading-data"><span class="header-section-number">1.1</span> Loading data</a></li>
+  <li><a href="#differential-expression-de-analysis" id="toc-differential-expression-de-analysis" class="nav-link" data-scroll-target="#differential-expression-de-analysis"><span class="header-section-number">1.2</span> Differential Expression (DE) analysis</a></li>
+  <li><a href="#over-representation-analysis-ora" id="toc-over-representation-analysis-ora" class="nav-link" data-scroll-target="#over-representation-analysis-ora"><span class="header-section-number">1.3</span> Over-Representation analysis (ORA)</a></li>
+  <li><a href="#gene-set-enrichment-analysis-gsea" id="toc-gene-set-enrichment-analysis-gsea" class="nav-link" data-scroll-target="#gene-set-enrichment-analysis-gsea"><span class="header-section-number">1.4</span> Gene-Set Enrichment Analysis (GSEA)</a></li>
+  <li><a href="#conclusion" id="toc-conclusion" class="nav-link" data-scroll-target="#conclusion"><span class="header-section-number">1.5</span> Conclusion</a></li>
+  <li><a href="#references-table" id="toc-references-table" class="nav-link" data-scroll-target="#references-table"><span class="header-section-number">1.6</span> References Table</a></li>
+  </ul></li>
+  </ul>
+</nav>
+</div>
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Tutorial GO enrichment and GSEA</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Themis Halka, Rozenn Mintec </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">October 17, 2025</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+</header>
+
+<section id="installing-and-loading-necessary-packages" class="level2" data-number="0.1">
+<h2 data-number="0.1" class="anchored" data-anchor-id="installing-and-loading-necessary-packages"><span class="header-section-number">0.1</span> Installing and loading necessary packages</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="fu">requireNamespace</span>(<span class="st">"BiocManager"</span>, <span class="at">quietly =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">install.packages</span>(<span class="st">"BiocManager"</span>)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">#required packages</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>cran_pkgs <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"tidyverse"</span>, <span class="st">"ggplot2"</span>, <span class="st">"ggupset"</span>)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>bioc_pkgs <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"airway"</span>, <span class="st">"DESeq2"</span>, <span class="st">"clusterProfiler"</span>,</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>               <span class="st">"AnnotationDbi"</span>, <span class="st">"org.Hs.eg.db"</span>, <span class="st">"enrichplot"</span>)</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">#install missing CRAN packages</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>missing_cran <span class="ot">&lt;-</span> <span class="fu">setdiff</span>(cran_pkgs, <span class="fu">rownames</span>(<span class="fu">installed.packages</span>()))</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">length</span>(missing_cran)) <span class="fu">install.packages</span>(missing_cran)</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co">#install missing Bioconductor packages</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>missing_bioc <span class="ot">&lt;-</span> <span class="fu">setdiff</span>(bioc_pkgs, <span class="fu">rownames</span>(<span class="fu">installed.packages</span>()))</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">length</span>(missing_bioc)) BiocManager<span class="sc">::</span><span class="fu">install</span>(missing_bioc)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(airway) <span class="co">#dataset </span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(DESeq2) <span class="co">#differential expression</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(clusterProfiler) <span class="co">#GO enrichment and GSEA</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(AnnotationDbi) <span class="co">#will run in the background to retrieve annotations</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(org.Hs.eg.db) <span class="co">#for GO IDs for humans </span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(enrichplot) <span class="co">#package for enrichment results visualization</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggupset) <span class="co">#needed for the uspet plot</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="tutorial-ora-and-gsea-using-go" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> Tutorial ORA and GSEA (using GO)</h1>
+<p>When performing (single-cell) RNA-Seq experiments, the aim is to investigate gene expression in the sample of interest. It can often be of interest to compare gene expression between different samples: different conditions (e.g.&nbsp;times series or treatment) or different cell types, lineages… The purpose of functional enrichment analysis is to explore and compare the variation in gene expression between the samples or conditions studied and relate it to the biological question of interest.</p>
+<p>Prior to performing functional enrichment, the data needs to be preprocessed and, if in the case of single-cell RNA-Seq, the different cell types must be identified. Once the data is ready, the first step of the workflow is to perform Differential Expression (DE) analysis to assess, for each gene, how much the expression varies between the two conditions or samples of interest. This analysis will give an output often containing thousands of genes, hence can be difficult to interpret and relate to the biological question. The goal of functional enrichment is to make sense of this output by linking the genes back to processes or pathways they are involved in, location in the cell…, i.e.&nbsp;information that is more intuitive and easily interpretable. Several methods can be used, and we will in this tutorial present and illustrate two complementary approaches:</p>
+<ul>
+<li><p>Over-Representation Analysis (ORA)</p></li>
+<li><p>Gene-Set Enrichment Analysis (GSEA)</p></li>
+</ul>
+<p>Both techniques test whether specific biological terms, pathways, or functions are statistically enriched (or over-represented) among the genes showing important variation in expression between the conditions or samples of interest. By connecting gene names to interpretable and understandable biological concepts, these analyses help transform a long list of DE genes into biological insights.</p>
+<p>Several gene annotations (pathways, ontologies…) can be used for such purpose. In this tutorial, we will focus on Gene Ontology (GO), a standardized representation that describes gene attributes across all species. It is organized into 3 categories : Biological Process, Molecular Function and Cellular Component. We will here focus on Biological Process, the most common category.</p>
+<section id="loading-data" class="level2" data-number="1.1">
+<h2 data-number="1.1" class="anchored" data-anchor-id="loading-data"><span class="header-section-number">1.1</span> Loading data</h2>
+<p>In this tutorial, we use the <code>airway</code> package containing RNA-Seq data published by <em>Himes et al., 2014</em>.</p>
+<p>The dataset has already been preprocessed and normalized, making it ready for differential expression (DE) analysis.</p>
+<p>It is composed of transcriptomic profiles from four primary human airway smooth muscle cell lines derived from patients suffering from lung inflammation. For each cell line, two treatment conditions were analysed:</p>
+<ul>
+<li><p>Untreated (control)</p></li>
+<li><p>Treated with 1 µM dexamethasone for 18 hours. Dexamethasone is a synthetic glucocorticoid commonly used to suppress inflammation</p></li>
+</ul>
+<p>Our aim will therefore be to investigate which biological processes are affected by the dexamethasone treatment, by comparing the treated samples to the baseline untreated samples.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span>(<span class="st">"airway"</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>airway</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>class: RangedSummarizedExperiment 
+dim: 63677 8 
+metadata(1): ''
+assays(1): counts
+rownames(63677): ENSG00000000003 ENSG00000000005 ... ENSG00000273492
+  ENSG00000273493
+rowData names(10): gene_id gene_name ... seq_coord_system symbol
+colnames(8): SRR1039508 SRR1039509 ... SRR1039520 SRR1039521
+colData names(9): SampleName cell ... Sample BioSample</code></pre>
+</div>
+</div>
+<p>The <code>airway</code> package provides a <code>RangedSummarizedExperiment</code> object. From this object, we will extract the two elements required for differential expression analysis and the subsequent ORA and GSEA (<strong>Note:</strong> if your dataset comes in a different format, you might need to adapt the extraction accordingly):</p>
+<ul>
+<li><p>The count matrix containing all gene counts for each sample (each row corresponds to a gene, each column corresponds to a sample)</p></li>
+<li><p>The sample metadata providing contextual information for each sample: its origin (here which cell line) and the condition (here treated or untreated)</p></li>
+</ul>
+<p>This extraction step was inspired from https://github.com/kpatel427/YouTubeTutorials/blob/main/getData.R</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">#count matrix (countsData)</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>countsData <span class="ot">&lt;-</span> <span class="fu">assay</span>(airway)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">#sample information (colData)</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>colData <span class="ot">&lt;-</span> <span class="fu">as.data.frame</span>(<span class="fu">colData</span>(airway))</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>colData <span class="ot">&lt;-</span> colData[,<span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">3</span>)] <span class="co">#extracting metadata of interest: cell line and treatment condition</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>colData<span class="sc">$</span>dex <span class="ot">&lt;-</span> <span class="fu">gsub</span>(<span class="st">'trt'</span>, <span class="st">'treated'</span>, colData<span class="sc">$</span>dex) <span class="co">#renaming values </span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>colData<span class="sc">$</span>dex <span class="ot">&lt;-</span> <span class="fu">gsub</span>(<span class="st">'untrt'</span>, <span class="st">'untreated'</span>, colData<span class="sc">$</span>dex) <span class="co">#renaming values </span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(colData) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">'cellLine'</span>, <span class="st">'dexamethasone'</span>) <span class="co">#renaming columns</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>We can now visualize our two inputs and ensure that the data has been correctly extracted:</p>
+<ul>
+<li><p>The count matrix should display gene IDs as rows and sample as columns, with each entry representing the raw count of reads mapped to a given gene in a given sample</p></li>
+<li><p>The sample metadata should show one row per sample and contain information about its cell line and treatment condition</p></li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(countsData)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                SRR1039508 SRR1039509 SRR1039512 SRR1039513 SRR1039516
+ENSG00000000003        679        448        873        408       1138
+ENSG00000000005          0          0          0          0          0
+ENSG00000000419        467        515        621        365        587
+ENSG00000000457        260        211        263        164        245
+ENSG00000000460         60         55         40         35         78
+ENSG00000000938          0          0          2          0          1
+                SRR1039517 SRR1039520 SRR1039521
+ENSG00000000003       1047        770        572
+ENSG00000000005          0          0          0
+ENSG00000000419        799        417        508
+ENSG00000000457        331        233        229
+ENSG00000000460         63         76         60
+ENSG00000000938          0          0          0</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(colData)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+
+<div data-pagedtable="false">
+  <script data-pagedtable-source="" type="application/json">
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["cellLine"],"name":[1],"type":["fct"],"align":["left"]},{"label":["dexamethasone"],"name":[2],"type":["chr"],"align":["left"]}],"data":[{"1":"N61311","2":"untreated","_rn_":"SRR1039508"},{"1":"N61311","2":"treated","_rn_":"SRR1039509"},{"1":"N052611","2":"untreated","_rn_":"SRR1039512"},{"1":"N052611","2":"treated","_rn_":"SRR1039513"},{"1":"N080611","2":"untreated","_rn_":"SRR1039516"},{"1":"N080611","2":"treated","_rn_":"SRR1039517"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+</div>
+</div>
+<p>For the subsequent analysis, we need to make sure that the column names present in the count matrix match the row names of the sample metadata, and in the same order.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">all</span>(<span class="fu">colnames</span>(countsData) <span class="sc">%in%</span> <span class="fu">rownames</span>(colData))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] TRUE</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">all</span>(<span class="fu">colnames</span>(countsData) <span class="sc">==</span> <span class="fu">rownames</span>(colData))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] TRUE</code></pre>
+</div>
+</div>
+<p>Our data is now ready to be used for differential expression analysis.</p>
+</section>
+<section id="differential-expression-de-analysis" class="level2" data-number="1.2">
+<h2 data-number="1.2" class="anchored" data-anchor-id="differential-expression-de-analysis"><span class="header-section-number">1.2</span> Differential Expression (DE) analysis</h2>
+<section id="preparing-data-for-de-analysis" class="level4" data-number="1.2.0.1">
+<h4 data-number="1.2.0.1" class="anchored" data-anchor-id="preparing-data-for-de-analysis"><span class="header-section-number">1.2.0.1</span> Preparing data for DE analysis</h4>
+<p>DE analysis aims to statistically assess differences in gene expression between two samples or conditions, and we will use it to determine which genes might be significantly overexpressed or underexpressed in our two treatment conditions: treated vs untreated.</p>
+<p>For this step, we use the <code>DESeq2</code> package (<em>Love et al., 2014</em>).</p>
+<p>First, we need to create the <code>DESeqDataSet</code> object, the main input for the <code>DESeq()</code> function. We do this using the <code>DESeqDataSetFromMatrix()</code> function, where we specify :</p>
+<ul>
+<li><p>The count matrix (<code>countsData</code>)</p></li>
+<li><p>The sample information (<code>colData</code>)</p></li>
+<li><p>The experimental design, which specifies the two samples or conditions we want to compare in the model. Here, we want to compare the gene expression between the two treatment conditions while also accounting for potential variability between the four cell lines.</p></li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>dds <span class="ot">&lt;-</span> <span class="fu">DESeqDataSetFromMatrix</span>(<span class="at">countData =</span> countsData, <span class="co">#count matrix</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>                              <span class="at">colData =</span> colData, <span class="co">#sample information</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>                              <span class="at">design =</span> <span class="sc">~</span> cellLine <span class="sc">+</span> dexamethasone) <span class="co">#design: cell line and treatment condition</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in DESeqDataSet(se, design = design, ignoreRank): some variables in
+design formula are characters, converting to factors</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>dds</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>class: DESeqDataSet 
+dim: 63677 8 
+metadata(1): version
+assays(1): counts
+rownames(63677): ENSG00000000003 ENSG00000000005 ... ENSG00000273492
+  ENSG00000273493
+rowData names(0):
+colnames(8): SRR1039508 SRR1039509 ... SRR1039520 SRR1039521
+colData names(2): cellLine dexamethasone</code></pre>
+</div>
+</div>
+<p><strong>Optional step: Filtering lowly expressed genes.</strong> Transcriptomics data can be very large, with tens of thousands of expressed genes. In order to increase computation speed and improve robustness, we might want to filter some genes that are very lowly expressed across all samples.</p>
+<p>In this tutorial, we will remove genes whose total expression across all samples is less than 10 counts.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>dds <span class="ot">&lt;-</span> dds[<span class="fu">rowSums</span>(<span class="fu">counts</span>(dds)) <span class="sc">&gt;=</span> <span class="dv">10</span>,] <span class="co">#summing expression across all samples and selecting counts &gt; 10</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>dds</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>class: DESeqDataSet 
+dim: 22369 8 
+metadata(1): version
+assays(1): counts
+rownames(22369): ENSG00000000003 ENSG00000000419 ... ENSG00000273487
+  ENSG00000273488
+rowData names(0):
+colnames(8): SRR1039508 SRR1039509 ... SRR1039520 SRR1039521
+colData names(2): cellLine dexamethasone</code></pre>
+</div>
+</div>
+<p>From 63677 genes, we filtered the data down to 22369 with this step, i.e.&nbsp;we removed over 40000 genes. This will be helpful to speed up our analysis.</p>
+<p>DE analysis aims to compare gene expression between samples or conditions. We usually want to compare one or several conditions to a baseline, which we need to explicitly define. Indeed, the algorithm will by default proceed alphabetically and choose the first condition as baseline (so in our case ‘treated’, while we want our baseline to be ‘untreated’).</p>
+<p>We therefore use the <code>relevel()</code> function to manually specify the baseline/reference we want to use.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>dds<span class="sc">$</span>dexamethasone <span class="ot">&lt;-</span> <span class="fu">relevel</span>(dds<span class="sc">$</span>dexamethasone, <span class="at">ref =</span> <span class="st">"untreated"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p><strong>Note:</strong> If you have any technical replicates in your analysis (i.e.&nbsp;multiple sequencing runs), you will need to collapse them before running DE analysis. Technical replicates have to be combined because they do not represent independent biological variation. On the contrary, biological replicates must not be collapsed (like in our case). For this, you can use the <code>collapseReplicates()</code> function: you can fin more information here https://rdrr.io/bioc/DESeq2/man/collapseReplicates.html</p>
+</section>
+<section id="running-de-analysis" class="level4" data-number="1.2.0.2">
+<h4 data-number="1.2.0.2" class="anchored" data-anchor-id="running-de-analysis"><span class="header-section-number">1.2.0.2</span> Running DE analysis</h4>
+<p>We can now run the DE analysis on our <code>DESeqDataSet</code> object (<code>dds</code>) with the function <code>DESeq()</code>. We then extract the results using the <code>results()</code> function. For the latter, need to specify two key parameters:</p>
+<ul>
+<li><p>The significance level (<code>alpha</code>) at which a gene is considered differentially expressed between conditions, here we use alpha = 0.05. By defaults, significance is assessed on the adjusted p-values, corrected for multiple testing with the Benjamini-Hochberg correction</p></li>
+<li><p>The contrast, i.e.&nbsp;which groups we want to compare in our analysis. It determines the direction of the log2 fold changes. Here, we need to choose the comparison we want to analyse. We previously defined our design when creating our <code>dds</code> object as <code>~ cellLine + dexamethasone</code>. This means that DESeq models both the treatment condition and cell line effect. We can verify the different comparison performed with the <code>resultsNames()</code> function. Here, we are most interested in the difference in gene expression between our two treatment conditions, hence we will contrast, in our treatment (dexamethasone) column, the treated and untreated samples.</p></li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>dds <span class="ot">&lt;-</span> <span class="fu">DESeq</span>(dds) <span class="co">#running DE analysis</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>estimating size factors</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>estimating dispersions</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>gene-wise dispersion estimates</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>mean-dispersion relationship</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>final dispersion estimates</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>fitting model and testing</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="fu">resultsNames</span>(dds) <span class="co">#printing the different comparisons performed by DESeq()</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Intercept"                          "cellLine_N061011_vs_N052611"       
+[3] "cellLine_N080611_vs_N052611"        "cellLine_N61311_vs_N052611"        
+[5] "dexamethasone_treated_vs_untreated"</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">results</span>(dds, <span class="co">#extract results</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>               <span class="at">alpha =</span> <span class="fl">0.05</span>, <span class="co">#set significance threshold </span></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>               <span class="at">contrast =</span> <span class="fu">c</span>(<span class="st">"dexamethasone"</span>, <span class="st">"treated"</span>, <span class="st">"untreated"</span>)) <span class="co">#set contrast</span></span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>res</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>log2 fold change (MLE): dexamethasone treated vs untreated 
+Wald test p-value: dexamethasone treated vs untreated 
+DataFrame with 22369 rows and 6 columns
+                 baseMean log2FoldChange     lfcSE       stat      pvalue
+                &lt;numeric&gt;      &lt;numeric&gt; &lt;numeric&gt;  &lt;numeric&gt;   &lt;numeric&gt;
+ENSG00000000003  708.5979     -0.3812271 0.1007023  -3.785684 1.53286e-04
+ENSG00000000419  520.2963      0.2068404 0.1121077   1.845014 6.50354e-02
+ENSG00000000457  237.1621      0.0379543 0.1428231   0.265744 7.90437e-01
+ENSG00000000460   57.9324     -0.0885309 0.2849344  -0.310706 7.56024e-01
+ENSG00000000971 5817.3108      0.4264246 0.0888056   4.801775 1.57266e-06
+...                   ...            ...       ...        ...         ...
+ENSG00000273483   2.68955       0.849208  1.253365  0.6775423    0.498062
+ENSG00000273485   1.28646      -0.123613  1.588251 -0.0778298    0.937963
+ENSG00000273486  15.45244      -0.150429  0.482098 -0.3120292    0.755018
+ENSG00000273487   8.16327       1.045639  0.693057  1.5087349    0.131367
+ENSG00000273488   8.58437       0.108946  0.632300  0.1723006    0.863201
+                       padj
+                  &lt;numeric&gt;
+ENSG00000000003 1.22779e-03
+ENSG00000000419 1.87583e-01
+ENSG00000000457 9.04243e-01
+ENSG00000000460 8.86519e-01
+ENSG00000000971 1.96467e-05
+...                     ...
+ENSG00000273483          NA
+ENSG00000273485          NA
+ENSG00000273486    0.886086
+ENSG00000273487    0.312660
+ENSG00000273488    0.939628</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(res)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+out of 22369 with nonzero total read count
+adjusted p-value &lt; 0.05
+LFC &gt; 0 (up)       : 2208, 9.9%
+LFC &lt; 0 (down)     : 1822, 8.1%
+outliers [1]       : 0, 0%
+low counts [2]     : 5204, 23%
+(mean count &lt; 6)
+[1] see 'cooksCutoff' argument of ?results
+[2] see 'independentFiltering' argument of ?results</code></pre>
+</div>
+</div>
+<p>The results of the DE analysis show, for each gene:</p>
+<ul>
+<li><p>The mean of the normalised count over all samples</p></li>
+<li><p>The Log2 Fold Change, which represents the gene expression in the treated over untreated condition</p></li>
+<li><p>The Standard Error of the Log2 Fold Change, which estimates the uncertainty of the Log2 Fold Change (e.g.&nbsp;which might be high because of few replicates, low gene counts or a high dispersion)</p></li>
+<li><p>The Wald statistic (stat), which compares the Log2 Fold Change to its Standard Error to evaluate whether there is a gene effect or whether it is just noise. A high Wald statistic value indicates that the gene probably has an effect</p></li>
+<li><p>The p-value, which assesses the probability of obtaining this Wald statistic value under the null hypothesis</p></li>
+<li><p>The adjusted p-value, which corrects the p-values for multiple testing using the Benjamini-Hochberg correction by default. This adjusted p-value will be compared to the significance level ‘alpha’ previously chosen in order to identify significantly Differentially Expressed Genes (DEGs)</p></li>
+</ul>
+<p>Before performing enrichment analysis, we perform some basic filtering of our differential expression results:</p>
+<ol type="1">
+<li>We first remove the genes with missing Log2 Fold Change (<code>NA</code>), which can’t be analysed in the subsequent ORA and GSEA. However, those genes might show <code>NA</code> because there are solely expressed in one condition. To avoid loosing all information about these genes, we save them in another object, <code>res_NA</code>, in case we want to go back to them later</li>
+<li>We then filter out the genes presenting a low average normalised count (<code>baseMean</code>) across all samples. Indeed, lowly expressed genes might bias the subsequent ORA and GSEA, biasing p-value estimation because of small changes that, after normalization compared to higher-expressed genes, might falsely appear significant</li>
+</ol>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a>res_NA <span class="ot">&lt;-</span> res[<span class="fu">is.na</span>(res<span class="sc">$</span>log2FoldChange), ] <span class="co">#saving genes with NA log2 fold change</span></span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>res <span class="ot">&lt;-</span> <span class="fu">na.omit</span>(res) <span class="co">#excluding missing values </span></span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a>res <span class="ot">&lt;-</span> res[res<span class="sc">$</span>baseMean <span class="sc">&gt;</span> <span class="dv">50</span>,] <span class="co">#filtering lowly expressed genes</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="visualization-of-de-results" class="level4" data-number="1.2.0.3">
+<h4 data-number="1.2.0.3" class="anchored" data-anchor-id="visualization-of-de-results"><span class="header-section-number">1.2.0.3</span> Visualization of DE results</h4>
+<p>We will visualize the results of the DE analysis using a MA plot. It displays the Log2 Fold Change of each gene between the two conditions studied, against the average normalized count (on a log scale). Genes that are significantly differentially expressed, according to the chosen <code>alpha</code> parameter, are colored in blue, making it easy to identify genes with strong expression variation.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plotMA</span>(res)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="Tutorial_RNAseqProject_files/figure-html/unnamed-chunk-13-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>Now that we have performed our DE analysis, we want to be able to interpret this variation in gene expression and will perform functional enrichment.</p>
+</section>
+</section>
+<section id="over-representation-analysis-ora" class="level2" data-number="1.3">
+<h2 data-number="1.3" class="anchored" data-anchor-id="over-representation-analysis-ora"><span class="header-section-number">1.3</span> Over-Representation analysis (ORA)</h2>
+<p>Over-Representation Analysis (ORA) is a functional enrichment analysis which aims to identify biological concepts (ontologies, pathways…) that are enriched (i.e.&nbsp;over-represented) in the gene set of interest. In our case, it will allow us to identify which terms or pathways are significantly altered in our treated samples vs untreated.</p>
+<p>To that aim, ORA will investigate the terms, here GO terms, associated to each gene from the gene set of interest and identify GO terms that are significantly enriched as compared to a background gene set using a Hypergeometric test.</p>
+<section id="degs-identification" class="level4" data-number="1.3.0.1">
+<h4 data-number="1.3.0.1" class="anchored" data-anchor-id="degs-identification"><span class="header-section-number">1.3.0.1</span> DEGs identification</h4>
+<p>ORA takes as an input a list of differentially expressed genes (DEGs), i.e.&nbsp;considered significantly differentially expressed by the previous DE analysis. We will therefore select the genes which had an adjusted p-value (i.e.&nbsp;corrected for multiple testing) &lt; 0.05. Additionally, we also, for safety, want to make sure that the absolute log2 fold change between our two conditions is greater than 1.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a>degs <span class="ot">&lt;-</span> <span class="fu">subset</span>(res, padj <span class="sc">&lt;</span> <span class="fl">0.05</span> <span class="sc">&amp;</span> <span class="fu">abs</span>(log2FoldChange) <span class="sc">&gt;</span> <span class="dv">1</span>) <span class="co">#identifying DEGs</span></span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a><span class="fu">nrow</span>(degs)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 676</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(degs)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>log2 fold change (MLE): dexamethasone treated vs untreated 
+Wald test p-value: dexamethasone treated vs untreated 
+DataFrame with 6 rows and 6 columns
+                 baseMean log2FoldChange     lfcSE      stat      pvalue
+                &lt;numeric&gt;      &lt;numeric&gt; &lt;numeric&gt; &lt;numeric&gt;   &lt;numeric&gt;
+ENSG00000003402 2546.6093        1.19047  0.121019   9.83706 7.79593e-23
+ENSG00000004799  914.3706        2.64496  0.628583   4.20781 2.57854e-05
+ENSG00000006283   62.9599       -1.46590  0.284586  -5.15097 2.59147e-07
+ENSG00000007237  427.0041       -1.40472  0.189864  -7.39859 1.37637e-13
+ENSG00000008256 3716.5654        1.18342  0.103673  11.41491 3.52255e-30
+ENSG00000008311  721.9414        1.09573  0.107983  10.14724 3.40880e-24
+                       padj
+                  &lt;numeric&gt;
+ENSG00000003402 6.28250e-21
+ENSG00000004799 2.50911e-04
+ENSG00000006283 3.75381e-06
+ENSG00000007237 4.64151e-12
+ENSG00000008256 4.58065e-28
+ENSG00000008311 3.09588e-22</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a>genes <span class="ot">&lt;-</span> <span class="fu">rownames</span>(degs) <span class="co">#extracting DEG names</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>After filtering, 676 genes have been identified as DEGs and will serve as our input for ORA.</p>
+</section>
+<section id="running-ora" class="level4" data-number="1.3.0.2">
+<h4 data-number="1.3.0.2" class="anchored" data-anchor-id="running-ora"><span class="header-section-number">1.3.0.2</span> Running ORA</h4>
+<p>We now run ORA using the <code>enrichGO()</code> function from <code>clusterProfiler</code> package (<em>Yu et al., 2012 &amp; 2024; Wu et al., 2021; Xu et al., 2024</em>). This function requires several inputs:</p>
+<ul>
+<li><p>The DEGs list from the previous step</p></li>
+<li><p>The Organism Annotation Database (<code>OrgDb</code>), which links gene IDs to annotations from GO. Here, we choose <code>"org.Hs.eg.db"</code> as we work for human data. When working with mouse data, choose <code>"org.Mm.eg.db"</code>. For other organisms, you might have to convert it more manually (you can find more information here : <a href="https://geneontology.org/docs/download-go-annotations/" class="uri">https://geneontology.org/docs/download-go-annotations/</a>)</p></li>
+<li><p>The background set to which your DEGs will be compared to, here all genes outputted by the DE analysis (both significant and non-significant)</p></li>
+<li><p>The type of gene ID we have in our dataset: <code>"ENSEMBL"</code> for ensembl IDs, <code>"SYMBOL"</code> for gene symbol or <code>"ENTREZ"</code> for gene entries</p></li>
+<li><p>The ontology desired, i.e.&nbsp;one of the three GO categories: Biological Process (<code>"BP"</code>), most frequently used, Molecular Function (<code>"MF"</code>) or Cellular Component (<code>"CC"</code>). We will here use <code>"BP"</code>.</p></li>
+<li><p>The p-value cutoff used to determine significance. We will use the default 0.05</p></li>
+<li><p>The correction applied for multiple testing. We will use the default Benjamini-Hochberg (BH)</p></li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a>GO_res <span class="ot">&lt;-</span> <span class="fu">enrichGO</span>(<span class="at">gene =</span> genes, <span class="co">#gene list</span></span>
+<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a>                  <span class="at">OrgDb =</span> <span class="st">"org.Hs.eg.db"</span>, <span class="co">#organism </span></span>
+<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a>                  <span class="at">universe =</span> <span class="fu">rownames</span>(res), <span class="co">#background set</span></span>
+<span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a>                  <span class="at">keyType =</span> <span class="st">"ENSEMBL"</span>, <span class="co">#type of gene IDs </span></span>
+<span id="cb40-5"><a href="#cb40-5" aria-hidden="true" tabindex="-1"></a>                  <span class="at">ont =</span> <span class="st">"BP"</span>, <span class="co">#ontology of interest</span></span>
+<span id="cb40-6"><a href="#cb40-6" aria-hidden="true" tabindex="-1"></a>                  <span class="at">pvalueCutoff =</span> <span class="fl">0.05</span>, <span class="co">#significance cutoff</span></span>
+<span id="cb40-7"><a href="#cb40-7" aria-hidden="true" tabindex="-1"></a>                  <span class="at">pAdjustMethod =</span> <span class="st">"BH"</span> <span class="co">#correction for multiple testing</span></span>
+<span id="cb40-8"><a href="#cb40-8" aria-hidden="true" tabindex="-1"></a>                  ) </span>
+<span id="cb40-9"><a href="#cb40-9" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(<span class="fu">as.data.frame</span>(GO_res))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+
+<div data-pagedtable="false">
+  <script data-pagedtable-source="" type="application/json">
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["ID"],"name":[1],"type":["chr"],"align":["left"]},{"label":["Description"],"name":[2],"type":["chr"],"align":["left"]},{"label":["GeneRatio"],"name":[3],"type":["chr"],"align":["left"]},{"label":["BgRatio"],"name":[4],"type":["chr"],"align":["left"]},{"label":["RichFactor"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["FoldEnrichment"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["zScore"],"name":[7],"type":["dbl"],"align":["right"]},{"label":["pvalue"],"name":[8],"type":["dbl"],"align":["right"]},{"label":["p.adjust"],"name":[9],"type":["dbl"],"align":["right"]},{"label":["qvalue"],"name":[10],"type":["dbl"],"align":["right"]},{"label":["geneID"],"name":[11],"type":["chr"],"align":["left"]},{"label":["Count"],"name":[12],"type":["int"],"align":["right"]}],"data":[{"1":"GO:0044057","2":"regulation of system process","3":"53/591","4":"293/10397","5":"0.1808874","6":"3.182210","7":"9.301748","8":"2.737742e-14","9":"1.121105e-10","10":"8.305443e-11","11":"ENSG00000006283/ENSG00000025708/ENSG00000069431/ENSG00000070193/ENSG00000071282/ENSG00000073756/ENSG00000092969/ENSG00000103647/ENSG00000105711/ENSG00000109861/ENSG00000112837/ENSG00000115419/ENSG00000117152/ENSG00000118689/ENSG00000119508/ENSG00000123358/ENSG00000128165/ENSG00000129682/ENSG00000131979/ENSG00000132170/ENSG00000132326/ENSG00000132970/ENSG00000135744/ENSG00000136999/ENSG00000137869/ENSG00000138379/ENSG00000138735/ENSG00000145244/ENSG00000145362/ENSG00000149256/ENSG00000150907/ENSG00000155962/ENSG00000156804/ENSG00000159023/ENSG00000159167/ENSG00000160460/ENSG00000163083/ENSG00000164171/ENSG00000164530/ENSG00000165895/ENSG00000165995/ENSG00000168398/ENSG00000170214/ENSG00000171385/ENSG00000172260/ENSG00000173918/ENSG00000174437/ENSG00000174697/ENSG00000175538/ENSG00000180914/ENSG00000183044/ENSG00000184408/ENSG00000198947","12":"53","_rn_":"GO:0044057"},{"1":"GO:0003013","2":"circulatory system process","3":"54/591","4":"325/10397","5":"0.1661538","6":"2.923014","7":"8.646638","8":"5.734717e-13","9":"1.174183e-09","10":"8.698660e-10","11":"ENSG00000006283/ENSG00000017483/ENSG00000023909/ENSG00000049759/ENSG00000069431/ENSG00000073756/ENSG00000092969/ENSG00000099337/ENSG00000100739/ENSG00000103257/ENSG00000103647/ENSG00000105711/ENSG00000107562/ENSG00000107796/ENSG00000112715/ENSG00000112837/ENSG00000117152/ENSG00000119139/ENSG00000126016/ENSG00000128165/ENSG00000129682/ENSG00000131389/ENSG00000131979/ENSG00000132170/ENSG00000132326/ENSG00000133110/ENSG00000134294/ENSG00000135744/ENSG00000136546/ENSG00000137331/ENSG00000138074/ENSG00000138735/ENSG00000145244/ENSG00000145362/ENSG00000153904/ENSG00000155962/ENSG00000159167/ENSG00000160200/ENSG00000160460/ENSG00000165895/ENSG00000165995/ENSG00000168398/ENSG00000170214/ENSG00000170624/ENSG00000171385/ENSG00000174437/ENSG00000174697/ENSG00000175538/ENSG00000177674/ENSG00000180914/ENSG00000183044/ENSG00000184408/ENSG00000196517/ENSG00000198947","12":"54","_rn_":"GO:0003013"},{"1":"GO:0008015","2":"blood circulation","3":"48/591","4":"274/10397","5":"0.1751825","6":"3.081848","7":"8.573352","8":"1.648220e-12","9":"2.249820e-09","10":"1.666726e-09","11":"ENSG00000006283/ENSG00000023909/ENSG00000049759/ENSG00000069431/ENSG00000073756/ENSG00000092969/ENSG00000099337/ENSG00000100739/ENSG00000103647/ENSG00000105711/ENSG00000107562/ENSG00000107796/ENSG00000112715/ENSG00000112837/ENSG00000117152/ENSG00000119139/ENSG00000126016/ENSG00000128165/ENSG00000129682/ENSG00000131979/ENSG00000132170/ENSG00000132326/ENSG00000133110/ENSG00000135744/ENSG00000136546/ENSG00000137331/ENSG00000138735/ENSG00000145244/ENSG00000145362/ENSG00000153904/ENSG00000155962/ENSG00000159167/ENSG00000160200/ENSG00000160460/ENSG00000165895/ENSG00000165995/ENSG00000168398/ENSG00000170214/ENSG00000170624/ENSG00000171385/ENSG00000174437/ENSG00000174697/ENSG00000175538/ENSG00000177674/ENSG00000180914/ENSG00000183044/ENSG00000184408/ENSG00000198947","12":"48","_rn_":"GO:0008015"},{"1":"GO:0003012","2":"muscle system process","3":"44/591","4":"249/10397","5":"0.1767068","6":"3.108665","7":"8.267951","8":"1.076497e-11","9":"1.102064e-08","10":"8.164378e-09","11":"ENSG00000003402/ENSG00000006283/ENSG00000049759/ENSG00000069431/ENSG00000071282/ENSG00000073756/ENSG00000100292/ENSG00000105711/ENSG00000107796/ENSG00000117152/ENSG00000118689/ENSG00000119508/ENSG00000123358/ENSG00000129682/ENSG00000132170/ENSG00000135744/ENSG00000136546/ENSG00000138379/ENSG00000138735/ENSG00000145362/ENSG00000150907/ENSG00000155962/ENSG00000156804/ENSG00000159167/ENSG00000163110/ENSG00000163431/ENSG00000163697/ENSG00000163884/ENSG00000164171/ENSG00000164530/ENSG00000165895/ENSG00000165995/ENSG00000168398/ENSG00000168621/ENSG00000170214/ENSG00000170624/ENSG00000171385/ENSG00000174437/ENSG00000174697/ENSG00000175538/ENSG00000180914/ENSG00000183044/ENSG00000184408/ENSG00000198947","12":"44","_rn_":"GO:0003012"},{"1":"GO:0001568","2":"blood vessel development","3":"66/591","4":"493/10397","5":"0.1338742","6":"2.355145","7":"7.568063","8":"3.803287e-11","9":"3.114892e-08","10":"2.307594e-08","11":"ENSG00000003402/ENSG00000012048/ENSG00000025708/ENSG00000057657/ENSG00000069431/ENSG00000070193/ENSG00000073756/ENSG00000084674/ENSG00000092969/ENSG00000100292/ENSG00000102554/ENSG00000102760/ENSG00000105989/ENSG00000107338/ENSG00000107731/ENSG00000107796/ENSG00000108821/ENSG00000112715/ENSG00000113578/ENSG00000117461/ENSG00000118257/ENSG00000118523/ENSG00000123358/ENSG00000124440/ENSG00000124766/ENSG00000126016/ENSG00000126785/ENSG00000128165/ENSG00000128602/ENSG00000128917/ENSG00000130066/ENSG00000132170/ENSG00000133216/ENSG00000135821/ENSG00000136999/ENSG00000137801/ENSG00000140105/ENSG00000140545/ENSG00000142871/ENSG00000143878/ENSG00000144810/ENSG00000145423/ENSG00000145632/ENSG00000148848/ENSG00000150907/ENSG00000153904/ENSG00000154734/ENSG00000161381/ENSG00000162407/ENSG00000163251/ENSG00000163513/ENSG00000164442/ENSG00000164619/ENSG00000166825/ENSG00000169855/ENSG00000170624/ENSG00000170989/ENSG00000172156/ENSG00000174697/ENSG00000175197/ENSG00000177283/ENSG00000178878/ENSG00000182580/ENSG00000187498/ENSG00000189058/ENSG00000214274","12":"66","_rn_":"GO:0001568"},{"1":"GO:0030198","2":"extracellular matrix organization","3":"40/591","4":"225/10397","5":"0.1777778","6":"3.127505","7":"7.920264","8":"7.982272e-11","9":"4.669629e-08","10":"3.459385e-08","11":"ENSG00000003402/ENSG00000046653/ENSG00000060718/ENSG00000074527/ENSG00000077943/ENSG00000081052/ENSG00000092969/ENSG00000100767/ENSG00000102760/ENSG00000102996/ENSG00000103196/ENSG00000107821/ENSG00000108821/ENSG00000114270/ENSG00000116962/ENSG00000125398/ENSG00000132170/ENSG00000133110/ENSG00000135744/ENSG00000138316/ENSG00000142871/ENSG00000143196/ENSG00000144810/ENSG00000145423/ENSG00000154734/ENSG00000154736/ENSG00000162493/ENSG00000162745/ENSG00000163661/ENSG00000163697/ENSG00000164171/ENSG00000164761/ENSG00000167642/ENSG00000168646/ENSG00000171819/ENSG00000178031/ENSG00000185585/ENSG00000187498/ENSG00000196569/ENSG00000196739","12":"40","_rn_":"GO:0030198"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+</div>
+</div>
+<p>After running ORA, we obtain a table that summarizes different characteristics of the enriched GO terms:</p>
+<ul>
+<li><p>ID: GO term identifier</p></li>
+<li><p>Description: the description of the GO term (based on the chosen ontology category)</p></li>
+<li><p>Gene ratio: the ratio of DEGs belonging to the GO term vs the total number of DEGs</p></li>
+<li><p>BgRatio: the ratio of all genes belonging to the GO term (in the background set) vs the total number of genes in the background set, which gives an indication of how “rare” the GO term is</p></li>
+<li><p>RichFactor: the magnitude of enrichment calculated as GeneRatio/BgRatio</p></li>
+<li><p>FoldEnrichement: the enrichment fold change</p></li>
+<li><p>zScore: the direction of the enrichement</p></li>
+<li><p>pvalue: the raw p-value for enrichment</p></li>
+<li><p>p.adjust : the ajusted p-value corrected for multiple testing with the chosen correction</p></li>
+<li><p>qvalue : the False Discovery Rate</p></li>
+<li><p>GeneID: the IDs of genes in the DEGs list that map to the GO term</p></li>
+<li><p>Count: the number of DEGs associated with the GO term</p></li>
+</ul>
+</section>
+<section id="visualizations-for-ora-results" class="level4" data-number="1.3.0.3">
+<h4 data-number="1.3.0.3" class="anchored" data-anchor-id="visualizations-for-ora-results"><span class="header-section-number">1.3.0.3</span> Visualizations for ORA results</h4>
+<p>To interpret enrichment results, it is useful to visualize them. For this, the <code>enrichplot</code> package provides several visualization methods that can be applied to both ORA and GSEA results (<em>Yu et al., 2025</em>)</p>
+<p><strong>The bar plot : an overview of most enriched GO terms</strong></p>
+<p>The most commonly used method for visualization is the bar plot. It gives a quick overview of the most significant enriched terms.</p>
+<p>You can customize it to display either p-values, gene counts or gene ratios on the x-axis. The <code>showCategory</code> parameter allows you to indicate how many top GO terms (i.e.&nbsp;most enriched) to display in the plot. The bar plot is additionally coloured according to the GO term’s adjusted p-value.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb41"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="fu">barplot</span>(GO_res,</span>
+<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a>        <span class="at">showCategory =</span> <span class="dv">20</span>, <span class="co">#number of GO terms to display</span></span>
+<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a>        <span class="at">title =</span> <span class="st">"Barplot representation of the top 20 enriched GO terms (ORA)"</span>,</span>
+<span id="cb41-4"><a href="#cb41-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">font.size =</span> <span class="dv">10</span>,</span>
+<span id="cb41-5"><a href="#cb41-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">color =</span> <span class="st">"p.adjust"</span> <span class="co">#colour according to p-value</span></span>
+<span id="cb41-6"><a href="#cb41-6" aria-hidden="true" tabindex="-1"></a>        ) <span class="sc">+</span></span>
+<span id="cb41-7"><a href="#cb41-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="st">"Counts"</span>) <span class="sc">+</span> </span>
+<span id="cb41-8"><a href="#cb41-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylab</span>(<span class="st">"GO Biological Process Terms"</span>) <span class="sc">+</span></span>
+<span id="cb41-9"><a href="#cb41-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb41-10"><a href="#cb41-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
+<span id="cb41-11"><a href="#cb41-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">hjust =</span> <span class="fl">0.5</span>, <span class="at">face =</span> <span class="st">"bold"</span>, <span class="at">size =</span> <span class="dv">14</span>),</span>
+<span id="cb41-12"><a href="#cb41-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">12</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="Tutorial_RNAseqProject_files/figure-html/unnamed-chunk-16-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p><strong>The dot plot : a more detailed overview of most enriched GO terms</strong></p>
+<p>Another well-used visualization method is the dot plot. It shows similar information as the bar plot but with an additional characteristic: the count (number of DEGs associated with the GO term) as dot size.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="fu">dotplot</span>(GO_res,</span>
+<span id="cb42-2"><a href="#cb42-2" aria-hidden="true" tabindex="-1"></a>        <span class="at">showCategory =</span> <span class="dv">20</span>,<span class="co">#number of GO terms to display</span></span>
+<span id="cb42-3"><a href="#cb42-3" aria-hidden="true" tabindex="-1"></a>        <span class="at">title =</span> <span class="st">"Dot plot representation of the top 20 enriched GO biological processes (ORA)"</span>,</span>
+<span id="cb42-4"><a href="#cb42-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">font.size =</span> <span class="dv">10</span>) <span class="sc">+</span></span>
+<span id="cb42-5"><a href="#cb42-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="st">"Gene ratio"</span>) <span class="sc">+</span></span>
+<span id="cb42-6"><a href="#cb42-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylab</span>(<span class="st">"GO Biological Process Terms"</span>) <span class="sc">+</span></span>
+<span id="cb42-7"><a href="#cb42-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb42-8"><a href="#cb42-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
+<span id="cb42-9"><a href="#cb42-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">hjust =</span> <span class="fl">0.5</span>, <span class="at">face =</span> <span class="st">"bold"</span>, <span class="at">size =</span> <span class="dv">14</span>),</span>
+<span id="cb42-10"><a href="#cb42-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">12</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="Tutorial_RNAseqProject_files/figure-html/unnamed-chunk-17-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p><strong>The upset plot : complex association</strong></p>
+<p>We can visualize complex association between genes and GO terms using the upset plot, which helps to show which genes are shared across multiple GO terms and is particularly useful for large enrichment results.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggupset)</span>
+<span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a><span class="fu">upsetplot</span>(GO_res) <span class="sc">+</span> </span>
+<span id="cb43-3"><a href="#cb43-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">"Upset plot representation of Enriched GO biological processes (ORA)"</span>) <span class="sc">+</span></span>
+<span id="cb43-4"><a href="#cb43-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="st">"GO Terms combinations"</span>) <span class="sc">+</span></span>
+<span id="cb43-5"><a href="#cb43-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylab</span>(<span class="st">"Gene count"</span>)<span class="sc">+</span></span>
+<span id="cb43-6"><a href="#cb43-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()<span class="sc">+</span></span>
+<span id="cb43-7"><a href="#cb43-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
+<span id="cb43-8"><a href="#cb43-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">hjust =</span> <span class="fl">0.5</span>, <span class="at">face =</span> <span class="st">"bold"</span>, <span class="at">size =</span> <span class="dv">14</span>),</span>
+<span id="cb43-9"><a href="#cb43-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.title =</span> <span class="fu">element_text</span>(<span class="at">face =</span> <span class="st">"bold"</span>, <span class="at">size =</span> <span class="dv">12</span>),</span>
+<span id="cb43-10"><a href="#cb43-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.text =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">10</span>),</span>
+<span id="cb43-11"><a href="#cb43-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.text.x =</span> <span class="fu">element_text</span>(<span class="at">angle =</span> <span class="dv">45</span>, <span class="at">hjust =</span> <span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="Tutorial_RNAseqProject_files/figure-html/unnamed-chunk-18-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>Using those visualizations and the table of enriched GO terms, you can them relate them back to your biological question and interpret your results using your knowledge and the literature.</p>
+</section>
+</section>
+<section id="gene-set-enrichment-analysis-gsea" class="level2" data-number="1.4">
+<h2 data-number="1.4" class="anchored" data-anchor-id="gene-set-enrichment-analysis-gsea"><span class="header-section-number">1.4</span> Gene-Set Enrichment Analysis (GSEA)</h2>
+<p>Gene Set Enrichment Analysis (GSEA) is another functional enrichment analysis which also aims to identify biological concepts (ontologies or pathways) that are enriched in the gene set of interest. However, GSEA is directional: for each significantly enriched term, it will precise whether the term is up-regulated or down-regulated in our sample of interest. Here, which terms are up-regulated or down-regulated in the treated sample vs untreated sample.</p>
+<p>To that aim, GSEA will, for each GO term of interest, calculate an Enrichment Score (ES) which will describe where in the ranked gene set of interest (outputted by the DE analysis) the term is most enriched. This ES will then be compare to the ES distribution obtained from randomly permuting gene labels in order to assess significance. As an output, we will obtain significantly enriched GO term at the top of the gene list (i.e.&nbsp;up-regulated) or at the bottom of the gene list (i.e.&nbsp;down-regulated).</p>
+<section id="ranked-gene-list-for-gsea" class="level4" data-number="1.4.0.1">
+<h4 data-number="1.4.0.1" class="anchored" data-anchor-id="ranked-gene-list-for-gsea"><span class="header-section-number">1.4.0.1</span> Ranked gene list for GSEA</h4>
+<p>In contrast to ORA, GSEA takes as input the list of all output genes from the DE analysis, significant or not, to detect changes.</p>
+<p>Genes are ranked according to the Wald statistic, which represents the log2 fold change in gene expression normalized by its error. This statistic underlies the calculation of the p-value to assess significance. We therefore expect genes that are up-regulated in the treated sample vs untreated to be at the top of the list, and the down-regulated genes at the bottom of that list (there is no notion of significance here).</p>
+<p>We will therefore rank all genes outputted from <code>DESeq</code> and create an input object with the ranked Wald statistic (<code>stat</code>) and corresponding gene name, to serve as an input for GSEA.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a>res_ranked <span class="ot">&lt;-</span> res[<span class="fu">order</span>(res<span class="sc">$</span>stat, <span class="at">decreasing =</span> <span class="cn">TRUE</span>),] <span class="co">#ranking data by decreasing Wald statistic</span></span>
+<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(res_ranked)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>log2 fold change (MLE): dexamethasone treated vs untreated 
+Wald test p-value: dexamethasone treated vs untreated 
+DataFrame with 6 rows and 6 columns
+                 baseMean log2FoldChange     lfcSE      stat       pvalue
+                &lt;numeric&gt;      &lt;numeric&gt; &lt;numeric&gt; &lt;numeric&gt;    &lt;numeric&gt;
+ENSG00000152583   997.445        4.57497  0.184241   24.8314 4.11067e-136
+ENSG00000165995   495.096        3.29110  0.133053   24.7353 4.46338e-135
+ENSG00000120129  3409.038        2.94785  0.121876   24.1872 3.03384e-129
+ENSG00000101347 12703.413        3.76702  0.155992   24.1488 7.68266e-129
+ENSG00000189221  2341.781        3.35365  0.142181   23.5872 5.21271e-123
+ENSG00000211445 12285.700        3.73044  0.166398   22.4187 2.58506e-111
+                        padj
+                   &lt;numeric&gt;
+ENSG00000152583 7.05596e-132
+ENSG00000165995 3.83070e-131
+ENSG00000120129 1.73586e-125
+ENSG00000101347 3.29682e-125
+ENSG00000189221 1.78952e-119
+ENSG00000211445 7.39542e-108</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a>genes <span class="ot">&lt;-</span> res_ranked<span class="sc">$</span>stat <span class="co">#Wald statistic (ranked)</span></span>
+<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(genes) <span class="ot">&lt;-</span> <span class="fu">rownames</span>(res_ranked) <span class="co">#corresponding gene name</span></span>
+<span id="cb46-3"><a href="#cb46-3" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(genes)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>ENSG00000152583 ENSG00000165995 ENSG00000120129 ENSG00000101347 ENSG00000189221 
+       24.83137        24.73530        24.18720        24.14882        23.58722 
+ENSG00000211445 
+       22.41872 </code></pre>
+</div>
+</div>
+</section>
+<section id="running-gsea" class="level4" data-number="1.4.0.2">
+<h4 data-number="1.4.0.2" class="anchored" data-anchor-id="running-gsea"><span class="header-section-number">1.4.0.2</span> Running GSEA</h4>
+<p>Once the ranked gene list is prepared, we can perform GSEA using <code>gseGO()</code> function from <code>clusterProfiler</code>.</p>
+<p>The <code>gseGO()</code> function computes an enrichment score (ES) which asses where in the ranked gene set the GO term’s genes are most concentrated. This ES is then normalized (NES) to account for gene set size. To avoid division-by-zero or instability when computing the enrichment score normalization, a small positive value is added (<code>eps</code>). This ensure reproducibility without affecting the biological interpretation.</p>
+<p>Once the enrichment score are obtained, significance is assessed by comparing the ES to the enrichment score distribution obtained from randomly permuting gene labels. The significance level is set by the parameter <code>pvalueCutoff</code>. Finally, the correction applied for multiple testing can be specified by the parameter <code>pAdjustMethod</code>.</p>
+<p>The output shows a list of significantly enriched GO terms, either up-regulated (enriched at the top) or down-regulated (enriched at the bottom) in the ranked gene list.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb48"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a><span class="fu">class</span>(genes)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "numeric"</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb50"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a>gse <span class="ot">&lt;-</span> <span class="fu">gseGO</span>(<span class="at">geneList =</span> genes, <span class="co">#gene list</span></span>
+<span id="cb50-2"><a href="#cb50-2" aria-hidden="true" tabindex="-1"></a>             <span class="at">OrgDb =</span> org.Hs.eg.db,<span class="co">#organism </span></span>
+<span id="cb50-3"><a href="#cb50-3" aria-hidden="true" tabindex="-1"></a>             <span class="at">keyType =</span> <span class="st">"ENSEMBL"</span>, <span class="co">#type of gene IDs</span></span>
+<span id="cb50-4"><a href="#cb50-4" aria-hidden="true" tabindex="-1"></a>             <span class="at">ont =</span> <span class="st">"BP"</span>, <span class="co">#ontology of interest</span></span>
+<span id="cb50-5"><a href="#cb50-5" aria-hidden="true" tabindex="-1"></a>             <span class="at">eps =</span> <span class="fl">1e-10</span>, <span class="co">#default value of epsilon</span></span>
+<span id="cb50-6"><a href="#cb50-6" aria-hidden="true" tabindex="-1"></a>             <span class="at">pvalueCutoff =</span> <span class="fl">0.05</span>, <span class="co">#significance cutoff</span></span>
+<span id="cb50-7"><a href="#cb50-7" aria-hidden="true" tabindex="-1"></a>             <span class="at">pAdjustMethod =</span> <span class="st">"BH"</span> <span class="co">#correction for multiple testing</span></span>
+<span id="cb50-8"><a href="#cb50-8" aria-hidden="true" tabindex="-1"></a>             )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in preparePathwaysAndStats(pathways, stats, minSize, maxSize, gseaParam, : There are ties in the preranked stats (0.02% of the list).
+The order of those tied genes will be arbitrary, which may produce unexpected results.</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb52"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(<span class="fu">as.data.frame</span>(gse))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+
+<div data-pagedtable="false">
+  <script data-pagedtable-source="" type="application/json">
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["ID"],"name":[1],"type":["chr"],"align":["left"]},{"label":["Description"],"name":[2],"type":["chr"],"align":["left"]},{"label":["setSize"],"name":[3],"type":["int"],"align":["right"]},{"label":["enrichmentScore"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["NES"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["pvalue"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["p.adjust"],"name":[7],"type":["dbl"],"align":["right"]},{"label":["qvalue"],"name":[8],"type":["dbl"],"align":["right"]},{"label":["rank"],"name":[9],"type":["dbl"],"align":["right"]},{"label":["leading_edge"],"name":[10],"type":["chr"],"align":["left"]},{"label":["core_enrichment"],"name":[11],"type":["chr"],"align":["left"]}],"data":[{"1":"GO:0030036","2":"actin cytoskeleton organization","3":"495","4":"0.3861280","5":"1.636055","6":"1.452181e-06","7":"0.003752001","8":"0.003250266","9":"1747","10":"tags=28%, list=14%, signal=25%","11":"ENSG00000139132/ENSG00000172403/ENSG00000168309/ENSG00000163171/ENSG00000146122/ENSG00000163110/ENSG00000163431/ENSG00000046653/ENSG00000125868/ENSG00000132970/ENSG00000179820/ENSG00000003402/ENSG00000134318/ENSG00000145675/ENSG00000111859/ENSG00000129116/ENSG00000186575/ENSG00000114019/ENSG00000157483/ENSG00000133816/ENSG00000162704/ENSG00000118523/ENSG00000143878/ENSG00000079691/ENSG00000133789/ENSG00000049540/ENSG00000122786/ENSG00000107104/ENSG00000167460/ENSG00000178209/ENSG00000159840/ENSG00000183688/ENSG00000141298/ENSG00000167549/ENSG00000113916/ENSG00000064666/ENSG00000112658/ENSG00000184304/ENSG00000213853/ENSG00000067900/ENSG00000198467/ENSG00000071127/ENSG00000073712/ENSG00000170873/ENSG00000169750/ENSG00000131236/ENSG00000130402/ENSG00000115091/ENSG00000068305/ENSG00000137076/ENSG00000197045/ENSG00000133026/ENSG00000184009/ENSG00000148180/ENSG00000147202/ENSG00000120899/ENSG00000151491/ENSG00000112290/ENSG00000170776/ENSG00000006607/ENSG00000100014/ENSG00000100266/ENSG00000198121/ENSG00000198736/ENSG00000134853/ENSG00000105137/ENSG00000121879/ENSG00000198793/ENSG00000096968/ENSG00000177425/ENSG00000167657/ENSG00000197879/ENSG00000135596/ENSG00000157827/ENSG00000120896/ENSG00000214274/ENSG00000008853/ENSG00000107438/ENSG00000143322/ENSG00000102760/ENSG00000143398/ENSG00000132612/ENSG00000197702/ENSG00000133121/ENSG00000070610/ENSG00000156232/ENSG00000142632/ENSG00000150093/ENSG00000136238/ENSG00000196924/ENSG00000132376/ENSG00000241553/ENSG00000127946/ENSG00000110237/ENSG00000135046/ENSG00000158321/ENSG00000173418/ENSG00000117519/ENSG00000101335/ENSG00000196588/ENSG00000113721/ENSG00000143549/ENSG00000172757/ENSG00000124006/ENSG00000105993/ENSG00000105976/ENSG00000152527/ENSG00000143761/ENSG00000103319/ENSG00000203485/ENSG00000196923/ENSG00000077549/ENSG00000136051/ENSG00000140416/ENSG00000104332/ENSG00000165527/ENSG00000110880/ENSG00000172725/ENSG00000119185/ENSG00000125753/ENSG00000139734/ENSG00000075624/ENSG00000150764/ENSG00000111199/ENSG00000167193/ENSG00000108946/ENSG00000104067/ENSG00000138071/ENSG00000112419/ENSG00000163545/ENSG00000111229/ENSG00000174775/ENSG00000145147/ENSG00000106299/ENSG00000164889/ENSG00000109079/ENSG00000131504","_rn_":"GO:0030036"},{"1":"GO:0032870","2":"cellular response to hormone stimulus","3":"455","4":"0.3835136","5":"1.615927","6":"1.477747e-06","7":"0.003752001","8":"0.003250266","9":"1575","10":"tags=25%, list=12%, signal=23%","11":"ENSG00000179094/ENSG00000116285/ENSG00000163083/ENSG00000168309/ENSG00000150907/ENSG00000151726/ENSG00000185950/ENSG00000119138/ENSG00000115457/ENSG00000119508/ENSG00000180914/ENSG00000162496/ENSG00000177674/ENSG00000023909/ENSG00000132356/ENSG00000118689/ENSG00000003402/ENSG00000134318/ENSG00000145675/ENSG00000124151/ENSG00000174697/ENSG00000165802/ENSG00000132155/ENSG00000169047/ENSG00000107104/ENSG00000168461/ENSG00000168610/ENSG00000131871/ENSG00000145604/ENSG00000168646/ENSG00000152518/ENSG00000184304/ENSG00000067900/ENSG00000225697/ENSG00000132170/ENSG00000126561/ENSG00000179295/ENSG00000130402/ENSG00000141458/ENSG00000159167/ENSG00000173757/ENSG00000123358/ENSG00000122641/ENSG00000163069/ENSG00000213626/ENSG00000140443/ENSG00000196843/ENSG00000048540/ENSG00000134853/ENSG00000145386/ENSG00000108840/ENSG00000163399/ENSG00000121879/ENSG00000198793/ENSG00000096968/ENSG00000197879/ENSG00000105971/ENSG00000118526/ENSG00000153823/ENSG00000100401/ENSG00000104142/ENSG00000148730/ENSG00000148154/ENSG00000105974/ENSG00000118515/ENSG00000213625/ENSG00000116106/ENSG00000133794/ENSG00000132376/ENSG00000004799/ENSG00000011405/ENSG00000135046/ENSG00000170542/ENSG00000185122/ENSG00000110768/ENSG00000134324/ENSG00000138379/ENSG00000113721/ENSG00000012822/ENSG00000156804/ENSG00000166579/ENSG00000136111/ENSG00000132793/ENSG00000105976/ENSG00000131408/ENSG00000151090/ENSG00000103319/ENSG00000100485/ENSG00000166263/ENSG00000163623/ENSG00000140526/ENSG00000144747/ENSG00000089006/ENSG00000171456/ENSG00000159346/ENSG00000171105/ENSG00000139687/ENSG00000104332/ENSG00000197594/ENSG00000115415/ENSG00000103994/ENSG00000168209/ENSG00000167114/ENSG00000132334/ENSG00000121068/ENSG00000070961/ENSG00000128016/ENSG00000149177/ENSG00000167193/ENSG00000108946/ENSG00000170145/ENSG00000111077/ENSG00000115548","_rn_":"GO:0032870"},{"1":"GO:0046323","2":"D-glucose import","3":"59","4":"0.6220245","5":"2.046992","6":"6.238295e-06","7":"0.006171778","8":"0.005346460","9":"2794","10":"tags=54%, list=22%, signal=42%","11":"ENSG00000134243/ENSG00000163884/ENSG00000185950/ENSG00000106617/ENSG00000145675/ENSG00000174697/ENSG00000169047/ENSG00000131871/ENSG00000179295/ENSG00000068305/ENSG00000163069/ENSG00000153823/ENSG00000128989/ENSG00000054277/ENSG00000070371/ENSG00000171105/ENSG00000112062/ENSG00000197594/ENSG00000167114/ENSG00000106070/ENSG00000076555/ENSG00000167578/ENSG00000125744/ENSG00000159399/ENSG00000119729/ENSG00000142208/ENSG00000203668/ENSG00000111269/ENSG00000153291/ENSG00000109667/ENSG00000116266/ENSG00000178752","_rn_":"GO:0046323"},{"1":"GO:0046324","2":"regulation of D-glucose import","3":"43","4":"0.6605456","5":"2.044270","6":"7.292372e-06","7":"0.006171778","8":"0.005346460","9":"2794","10":"tags=60%, list=22%, signal=47%","11":"ENSG00000163884/ENSG00000185950/ENSG00000106617/ENSG00000145675/ENSG00000174697/ENSG00000169047/ENSG00000131871/ENSG00000179295/ENSG00000068305/ENSG00000153823/ENSG00000128989/ENSG00000054277/ENSG00000070371/ENSG00000171105/ENSG00000112062/ENSG00000197594/ENSG00000106070/ENSG00000125744/ENSG00000159399/ENSG00000119729/ENSG00000142208/ENSG00000203668/ENSG00000111269/ENSG00000153291/ENSG00000116266/ENSG00000178752","_rn_":"GO:0046324"},{"1":"GO:0031589","2":"cell-substrate adhesion","3":"250","4":"0.4338049","5":"1.729588","6":"5.110700e-06","7":"0.006171778","8":"0.005346460","9":"1544","10":"tags=30%, list=12%, signal=27%","11":"ENSG00000162493/ENSG00000168309/ENSG00000046653/ENSG00000243244/ENSG00000173517/ENSG00000179820/ENSG00000134318/ENSG00000145675/ENSG00000198542/ENSG00000111859/ENSG00000116962/ENSG00000139567/ENSG00000182718/ENSG00000186575/ENSG00000143127/ENSG00000035403/ENSG00000118523/ENSG00000135862/ENSG00000079691/ENSG00000072163/ENSG00000091136/ENSG00000189058/ENSG00000107104/ENSG00000159840/ENSG00000113916/ENSG00000165996/ENSG00000077943/ENSG00000112658/ENSG00000144810/ENSG00000174804/ENSG00000213853/ENSG00000152377/ENSG00000067900/ENSG00000137801/ENSG00000147459/ENSG00000073712/ENSG00000126458/ENSG00000074527/ENSG00000169750/ENSG00000130402/ENSG00000158813/ENSG00000142871/ENSG00000137076/ENSG00000108861/ENSG00000184009/ENSG00000154188/ENSG00000120899/ENSG00000080573/ENSG00000165124/ENSG00000112276/ENSG00000096968/ENSG00000213949/ENSG00000167657/ENSG00000120896/ENSG00000143398/ENSG00000197702/ENSG00000156232/ENSG00000150093/ENSG00000136238/ENSG00000087303/ENSG00000196924/ENSG00000148484/ENSG00000140092/ENSG00000115232/ENSG00000008710/ENSG00000184371/ENSG00000183087/ENSG00000139220/ENSG00000104332/ENSG00000110880/ENSG00000149177/ENSG00000119185/ENSG00000091409/ENSG00000167193/ENSG00000173402/ENSG00000132669","_rn_":"GO:0031589"},{"1":"GO:0019725","2":"cellular homeostasis","3":"497","4":"0.3784269","5":"1.604508","6":"5.221720e-06","7":"0.006171778","8":"0.005346460","9":"2064","10":"tags=27%, list=16%, signal=24%","11":"ENSG00000165995/ENSG00000157214/ENSG00000125148/ENSG00000163884/ENSG00000150907/ENSG00000169715/ENSG00000185950/ENSG00000137672/ENSG00000136546/ENSG00000177666/ENSG00000127954/ENSG00000197043/ENSG00000023909/ENSG00000132356/ENSG00000118689/ENSG00000198431/ENSG00000145675/ENSG00000128699/ENSG00000115419/ENSG00000132155/ENSG00000174437/ENSG00000198947/ENSG00000051108/ENSG00000169504/ENSG00000136997/ENSG00000205364/ENSG00000131871/ENSG00000134851/ENSG00000118762/ENSG00000112658/ENSG00000184304/ENSG00000149577/ENSG00000104936/ENSG00000225697/ENSG00000130529/ENSG00000008130/ENSG00000154127/ENSG00000143384/ENSG00000104687/ENSG00000109501/ENSG00000159167/ENSG00000166260/ENSG00000113083/ENSG00000120899/ENSG00000165915/ENSG00000140443/ENSG00000089060/ENSG00000187446/ENSG00000143028/ENSG00000100644/ENSG00000167191/ENSG00000172939/ENSG00000162341/ENSG00000080815/ENSG00000123104/ENSG00000163399/ENSG00000121879/ENSG00000198668/ENSG00000197496/ENSG00000105971/ENSG00000075142/ENSG00000148834/ENSG00000151929/ENSG00000105974/ENSG00000167323/ENSG00000139644/ENSG00000108262/ENSG00000131507/ENSG00000188906/ENSG00000196924/ENSG00000101333/ENSG00000143153/ENSG00000136868/ENSG00000180694/ENSG00000117592/ENSG00000106688/ENSG00000185344/ENSG00000233276/ENSG00000138379/ENSG00000131100/ENSG00000143761/ENSG00000166263/ENSG00000163623/ENSG00000110911/ENSG00000183087/ENSG00000101017/ENSG00000113739/ENSG00000181481/ENSG00000150995/ENSG00000117410/ENSG00000138193/ENSG00000197594/ENSG00000171135/ENSG00000050393/ENSG00000164051/ENSG00000168924/ENSG00000158828/ENSG00000153162/ENSG00000070961/ENSG00000105726/ENSG00000110719/ENSG00000078140/ENSG00000111199/ENSG00000159363/ENSG00000198959/ENSG00000111077/ENSG00000103888/ENSG00000033627/ENSG00000073921/ENSG00000082641/ENSG00000146828/ENSG00000108588/ENSG00000165775/ENSG00000181804/ENSG00000155511/ENSG00000126522/ENSG00000124164/ENSG00000164889/ENSG00000131504/ENSG00000168079/ENSG00000162695/ENSG00000156642/ENSG00000145349/ENSG00000113732/ENSG00000205250/ENSG00000076555/ENSG00000177119/ENSG00000158158/ENSG00000165672/ENSG00000051523/ENSG00000197930/ENSG00000131943/ENSG00000071967/ENSG00000023318/ENSG00000254087","_rn_":"GO:0019725"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+</div>
+</div>
+</section>
+<section id="visualizations-for-gsea-results" class="level4" data-number="1.4.0.3">
+<h4 data-number="1.4.0.3" class="anchored" data-anchor-id="visualizations-for-gsea-results"><span class="header-section-number">1.4.0.3</span> Visualizations for GSEA results</h4>
+<p><strong>Dot plot : an overview of most enriched GO terms</strong></p>
+<p>In the case of GSEA, the <code>barplot()</code> is not intended for GSEA objects. It is more common to visualize the results using <code>dotplot()</code> to have a overview of the results. The dotplot will display the most enriched GO terms (whether they are up-regulated or down-regulated) but not display information about the direction of the enrichment.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb53"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a><span class="fu">dotplot</span>(gse,</span>
+<span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a>        <span class="at">showCategory =</span> <span class="dv">20</span>,</span>
+<span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a>        <span class="at">title =</span> <span class="st">"Dot plot representation of the top 20 enriched GO biological processes (GSEA)"</span>,</span>
+<span id="cb53-4"><a href="#cb53-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">font.size =</span> <span class="dv">10</span>) <span class="sc">+</span></span>
+<span id="cb53-5"><a href="#cb53-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="st">"Gene ratio"</span>) <span class="sc">+</span></span>
+<span id="cb53-6"><a href="#cb53-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylab</span>(<span class="st">"GO Biological Process Terms"</span>) <span class="sc">+</span></span>
+<span id="cb53-7"><a href="#cb53-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb53-8"><a href="#cb53-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
+<span id="cb53-9"><a href="#cb53-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">hjust =</span> <span class="fl">0.5</span>, <span class="at">face =</span> <span class="st">"bold"</span>, <span class="at">size =</span> <span class="dv">14</span>),</span>
+<span id="cb53-10"><a href="#cb53-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">12</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="Tutorial_RNAseqProject_files/figure-html/unnamed-chunk-23-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p><strong>The</strong> <strong>running enrichment score plot : visualizing enrichment for a selected GO term</strong></p>
+<p>To visualize how genes contribute to the enrichment of one GO term of focus, we can plot the running enrichment score (ES) along the ranked gene list. This plot shows where the genes associated with the selected GO term are located (top or bottom) within the ranked list.</p>
+<p>The peak value for the the running curve represents the ES for the selected GO term, i.e.&nbsp;if the peak is near the top of the ranked list, genes contributing to this term are mostly up-regulated, while if the peak is near the bottom of the ranked list, they are mostly down-regulated.</p>
+<p>Here, we used the first GO term “cellular response to hormone stimulus” as an example.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb54"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a>term <span class="ot">&lt;-</span> gse<span class="sc">$</span>Description[<span class="dv">1</span>]</span>
+<span id="cb54-2"><a href="#cb54-2" aria-hidden="true" tabindex="-1"></a><span class="fu">gseaplot2</span>(gse,</span>
+<span id="cb54-3"><a href="#cb54-3" aria-hidden="true" tabindex="-1"></a>          <span class="at">geneSetID =</span> gse<span class="sc">$</span>ID[<span class="dv">1</span>],</span>
+<span id="cb54-4"><a href="#cb54-4" aria-hidden="true" tabindex="-1"></a>          <span class="at">title =</span> <span class="fu">paste</span>(<span class="st">"Running enrichment score for:"</span>, term, <span class="st">"(GSEA)"</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="Tutorial_RNAseqProject_files/figure-html/unnamed-chunk-24-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p><strong>The ridge plot : enrichment results across multiple GO terms</strong></p>
+<p>The ridge plot is a good way to visualize the distribution of enrichment scores across the top enriched GO terms. It highlights both the direction (up/down regulation) and significance of the enrichment for multiple GO terms.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb55"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ridgeplot</span>(gse, <span class="at">showCategory =</span> <span class="dv">20</span>) <span class="sc">+</span></span>
+<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">"Ridge plot representation of the top 20 enriched GO terms (GSEA)"</span>) <span class="sc">+</span></span>
+<span id="cb55-3"><a href="#cb55-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="st">"Normalized Enrichment Score (NES)"</span>) <span class="sc">+</span></span>
+<span id="cb55-4"><a href="#cb55-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylab</span>(<span class="st">"GO Biological Process terms"</span>) <span class="sc">+</span></span>
+<span id="cb55-5"><a href="#cb55-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span></span>
+<span id="cb55-6"><a href="#cb55-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
+<span id="cb55-7"><a href="#cb55-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.title =</span> <span class="fu">element_text</span>(<span class="at">hjust =</span> <span class="fl">0.5</span>, <span class="at">face =</span> <span class="st">"bold"</span>, <span class="at">size =</span> <span class="dv">14</span>),</span>
+<span id="cb55-8"><a href="#cb55-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">axis.title =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="dv">12</span>)</span>
+<span id="cb55-9"><a href="#cb55-9" aria-hidden="true" tabindex="-1"></a>  )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Picking joint bandwidth of 1.09</code></pre>
+</div>
+<div class="cell-output-display">
+<p><img src="Tutorial_RNAseqProject_files/figure-html/unnamed-chunk-25-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>As for ORA, you can use those visualizations and the table of enriched GO terms to relate them back to your biological question and interpret your results using your knowledge and the literature.</p>
+<p>If you are interested in more visualization methods, you can find additional information here : <a href="https://yulab-smu.top/biomedical-knowledge-mining-book/enrichplot.html" class="uri">https://yulab-smu.top/biomedical-knowledge-mining-book/enrichplot.html</a></p>
+</section>
+</section>
+<section id="conclusion" class="level2" data-number="1.5">
+<h2 data-number="1.5" class="anchored" data-anchor-id="conclusion"><span class="header-section-number">1.5</span> Conclusion</h2>
+<p>In this tutorial, we presented how to perform functional enrichment analysis on RNA-Seq data using GO terms with two analysis: Over-Representation Analysis and Gene Set Enrichment Analysis. These analysis are often combined as they have subtle differences that make them complementary. While ORA is an intuitive and computationally fast method, GSEA is a harder to implement but more sensitive technique which provides more detailed information. Indeed, it is a directional analysis, i.e.&nbsp;precises whether a term is up-regulated or down-regulated. Moreover, since it inputs all the genes present in the data without defining a cutoff for significantly differentially expressed genes, it can be more sensitive to small changes that might get unnoticed in ORA. It can therefore be useful to combine both analysis and compare the outputs. This tutorial only presents two functional enrichment analysis, using one ontology, and you might want to explore other enrichment methods, e.g.&nbsp;pathway enrichment analysis, or ontologies, e.g.&nbsp;Disease Ontology or Medical Subset Heading, to further target our analysis to your dataset and biological question.</p>
+</section>
+<section id="references-table" class="level2" data-number="1.6">
+<h2 data-number="1.6" class="anchored" data-anchor-id="references-table"><span class="header-section-number">1.6</span> References Table</h2>
+<ol type="1">
+<li><p>Himes, B. E., Jiang, X., Wagner, P., Hu, R., Wang, Q., Klanderman, B., Whitaker, R. M., Duan, Q., Lasky-Su, J., Nikolos, C., Jester, W., Johnson, M., Panettieri, R. A., Tantisira, K. G., Weiss, S. T., &amp; Lu, Q. (2014). RNA-Seq Transcriptome Profiling Identifies CRISPLD2 as a Glucocorticoid Responsive Gene that Modulates Cytokine Function in Airway Smooth Muscle Cells. PLoS ONE, 9(6), e99625.<a href="https://doi.org/10.1371/journal.pone.0099625" class="uri">https://doi.org/10.1371/journal.pone.0099625</a></p></li>
+<li><p>YouTubeTutorials/getData.R at main · kpatel427/YouTubeTutorials. (n.d.). GitHub. Retrieved October 16, 2025, from<a href="https://github.com/kpatel427/YouTubeTutorials/blob/main/getData.R" class="uri">https://github.com/kpatel427/YouTubeTutorials/blob/main/getData.R</a></p></li>
+<li><p>Love, M. I., Huber, W., &amp; Anders, S. (2014). Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2. Genome Biology, 15(12), 550.<a href="https://doi.org/10.1186/s13059-014-0550-8" class="uri">https://doi.org/10.1186/s13059-014-0550-8</a></p></li>
+<li><p>Love, M. (2017). Airway [Computer software]. Bioconductor.<a href="https://doi.org/10.18129/B9.BIOC.AIRWAY" class="uri">https://doi.org/10.18129/B9.BIOC.AIRWAY</a></p></li>
+<li><p>collapseReplicates: Collapse technical replicates in a RangedSummarizedExperiment… in DESeq2: Differential gene expression analysis based on the negative binomial distribution. (n.d.). Retrieved October 16, 2025, from<a href="https://rdrr.io/bioc/DESeq2/man/collapseReplicates.html" class="uri">https://rdrr.io/bioc/DESeq2/man/collapseReplicates.html</a></p></li>
+<li><p>Download annotations. (2025, October 13). Gene Ontology Resource.<a href="http://geneontology.org/docs/download-go-annotations/" class="uri">http://geneontology.org/docs/download-go-annotations/</a></p></li>
+<li><p>Yu, G. (2024). Thirteen years of clusterProfiler. The Innovation, 5(6), 100722.<a href="https://doi.org/10.1016/j.xinn.2024.100722" class="uri">https://doi.org/10.1016/j.xinn.2024.100722</a></p></li>
+<li><p>Xu, S., Hu, E., Cai, Y., Xie, Z., Luo, X., Zhan, L., Tang, W., Wang, Q., Liu, B., Wang, R., Xie, W., Wu, T., Xie, L., &amp; Yu, G. (2024). Using clusterProfiler to characterize multiomics data. Nature Protocols, 19(11), 3292–3320.<a href="https://doi.org/10.1038/s41596-024-01020-z" class="uri">https://doi.org/10.1038/s41596-024-01020-z</a></p></li>
+<li><p>Wu, T., Hu, E., Xu, S., Chen, M., Guo, P., Dai, Z., Feng, T., Zhou, L., Tang, W., Zhan, L., Fu, X., Liu, S., Bo, X., &amp; Yu, G. (2021). clusterProfiler 4.0: A universal enrichment tool for interpreting omics data. The Innovation, 2(3), 100141.<a href="https://doi.org/10.1016/j.xinn.2021.100141" class="uri">https://doi.org/10.1016/j.xinn.2021.100141</a></p></li>
+<li><p>Yu, G., Wang, L.-G., Han, Y., &amp; He, Q.-Y. (2012). clusterProfiler: An R Package for Comparing Biological Themes Among Gene Clusters. OMICS: A Journal of Integrative Biology, 16(5), 284–287.<a href="https://doi.org/10.1089/omi.2011.0118" class="uri">https://doi.org/10.1089/omi.2011.0118</a></p></li>
+<li><p>Guangchuang Yu. (2018). Enrichplot [Computer software]. Bioconductor.<a href="https://doi.org/10.18129/B9.BIOC.ENRICHPLOT" class="uri">https://doi.org/10.18129/B9.BIOC.ENRICHPLOT</a></p></li>
+<li><p>Yu, G. (n.d.). Chapter 15 Visualization of functional enrichment result | Biomedical Knowledge Mining using GOSemSim and clusterProfiler. Retrieved October 16, 2025, from <a href="https://yulab-smu.top/biomedical-knowledge-mining-book/enrichplot.html" class="uri">https://yulab-smu.top/biomedical-knowledge-mining-book/enrichplot.html</a></p></li>
+</ol>
+<p>We finally save the session information for reproducibility purposes.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb57"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>R version 4.5.1 (2025-06-13 ucrt)
+Platform: x86_64-w64-mingw32/x64
+Running under: Windows 10 x64 (build 19045)
+
+Matrix products: default
+  LAPACK version 3.12.1
+
+locale:
+[1] LC_COLLATE=English_United Kingdom.utf8 
+[2] LC_CTYPE=English_United Kingdom.utf8   
+[3] LC_MONETARY=English_United Kingdom.utf8
+[4] LC_NUMERIC=C                           
+[5] LC_TIME=English_United Kingdom.utf8    
+
+time zone: Europe/Paris
+tzcode source: internal
+
+attached base packages:
+[1] stats4    stats     graphics  grDevices utils     datasets  methods  
+[8] base     
+
+other attached packages:
+ [1] ggupset_0.4.1               enrichplot_1.28.4          
+ [3] org.Hs.eg.db_3.21.0         AnnotationDbi_1.70.0       
+ [5] clusterProfiler_4.16.0      DESeq2_1.48.1              
+ [7] lubridate_1.9.4             forcats_1.0.1              
+ [9] stringr_1.5.2               dplyr_1.1.4                
+[11] purrr_1.1.0                 readr_2.1.5                
+[13] tidyr_1.3.1                 tibble_3.3.0               
+[15] ggplot2_4.0.0               tidyverse_2.0.0            
+[17] airway_1.28.0               SummarizedExperiment_1.38.1
+[19] Biobase_2.68.0              GenomicRanges_1.60.0       
+[21] GenomeInfoDb_1.44.3         IRanges_2.42.0             
+[23] S4Vectors_0.46.0            BiocGenerics_0.54.0        
+[25] generics_0.1.4              MatrixGenerics_1.20.0      
+[27] matrixStats_1.5.0          
+
+loaded via a namespace (and not attached):
+ [1] DBI_1.2.3               gson_0.1.0              rlang_1.1.6            
+ [4] magrittr_2.0.4          DOSE_4.2.0              ggridges_0.5.7         
+ [7] compiler_4.5.1          RSQLite_2.4.3           png_0.1-8              
+[10] vctrs_0.6.5             reshape2_1.4.4          pkgconfig_2.0.3        
+[13] crayon_1.5.3            fastmap_1.2.0           XVector_0.48.0         
+[16] labeling_0.4.3          rmarkdown_2.30          tzdb_0.5.0             
+[19] UCSC.utils_1.4.0        bit_4.6.0               xfun_0.53              
+[22] cachem_1.1.0            aplot_0.2.9             jsonlite_2.0.0         
+[25] blob_1.2.4              DelayedArray_0.34.1     BiocParallel_1.42.1    
+[28] parallel_4.5.1          R6_2.6.1                stringi_1.8.7          
+[31] RColorBrewer_1.1-3      GOSemSim_2.34.0         Rcpp_1.1.0             
+[34] knitr_1.50              snow_0.4-4              ggtangle_0.0.7         
+[37] R.utils_2.13.0          igraph_2.1.4            Matrix_1.7-3           
+[40] splines_4.5.1           timechange_0.3.0        tidyselect_1.2.1       
+[43] qvalue_2.40.0           rstudioapi_0.17.1       abind_1.4-8            
+[46] yaml_2.3.10             codetools_0.2-20        lattice_0.22-7         
+[49] plyr_1.8.9              treeio_1.32.0           withr_3.0.2            
+[52] KEGGREST_1.48.1         S7_0.2.0                evaluate_1.0.5         
+[55] gridGraphics_0.5-1      Biostrings_2.76.0       ggtree_3.16.3          
+[58] pillar_1.11.1           BiocManager_1.30.26     ggfun_0.2.0            
+[61] hms_1.1.4               tidytree_0.4.6          scales_1.4.0           
+[64] glue_1.8.0              lazyeval_0.2.2          tools_4.5.1            
+[67] data.table_1.17.8       fgsea_1.34.2            locfit_1.5-9.12        
+[70] fs_1.6.6                fastmatch_1.1-6         cowplot_1.2.0          
+[73] grid_4.5.1              ape_5.8-1               nlme_3.1-168           
+[76] patchwork_1.3.2         GenomeInfoDbData_1.2.14 cli_3.6.5              
+[79] rappdirs_0.3.3          S4Arrays_1.8.1          gtable_0.3.6           
+[82] R.methodsS3_1.8.2       yulab.utils_0.2.1       digest_0.6.37          
+[85] ggrepel_0.9.6           ggplotify_0.1.3         SparseArray_1.8.1      
+[88] htmlwidgets_1.6.4       farver_2.1.2            memoise_2.0.1          
+[91] htmltools_0.5.8.1       R.oo_1.27.1             lifecycle_1.0.4        
+[94] httr_1.4.7              GO.db_3.21.0            bit64_4.6.0-1          </code></pre>
+</div>
+</div>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
